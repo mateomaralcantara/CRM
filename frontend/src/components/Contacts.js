@@ -41,6 +41,8 @@ const Contacts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
