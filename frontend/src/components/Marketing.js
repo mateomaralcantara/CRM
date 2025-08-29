@@ -889,12 +889,24 @@ const Marketing = () => {
                     )}
 
                     {campaign.objectives && campaign.objectives.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm text-gray-600 mb-2">Objetivos:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {campaign.objectives.map((objective, index) => (
-                            <Badge key={index} variant="secondary">{objective}</Badge>
-                          ))}
+                      <div className="flex items-center justify-between mt-4">
+                        <div>
+                          <p className="text-sm text-gray-600 mb-2">Objetivos:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {campaign.objectives.map((objective, index) => (
+                              <Badge key={index} variant="secondary">{objective}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCampaign(campaign.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     )}
