@@ -340,7 +340,7 @@ class CRMAPITester:
         """Test deleting a non-existent contact - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'contacts/{fake_id}', expected_status=404)
-        success = data is None  # Should fail with 404
+        success = data is None and error is not None  # Should fail with 404
         
         return self.log_test("Delete Non-existent Contact", success, "Correctly returned 404 for non-existent contact")
 
@@ -348,7 +348,7 @@ class CRMAPITester:
         """Test deleting a non-existent lead - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'leads/{fake_id}', expected_status=404)
-        success = data is None  # Should fail with 404
+        success = data is None and error is not None  # Should fail with 404
         
         return self.log_test("Delete Non-existent Lead", success, "Correctly returned 404 for non-existent lead")
 
@@ -356,7 +356,7 @@ class CRMAPITester:
         """Test deleting a non-existent deal - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'deals/{fake_id}', expected_status=404)
-        success = data is None  # Should fail with 404
+        success = data is None and error is not None  # Should fail with 404
         
         return self.log_test("Delete Non-existent Deal", success, "Correctly returned 404 for non-existent deal")
 
@@ -364,7 +364,7 @@ class CRMAPITester:
         """Test deleting a non-existent activity - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'activities/{fake_id}', expected_status=404)
-        success = data is None  # Should fail with 404
+        success = data is None and error is not None  # Should fail with 404
         
         return self.log_test("Delete Non-existent Activity", success, "Correctly returned 404 for non-existent activity")
 
