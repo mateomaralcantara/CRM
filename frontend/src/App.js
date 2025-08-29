@@ -5,6 +5,10 @@ import { Toaster } from 'sonner';
 import './App.css';
 import Contacts from './components/Contacts';
 import Leads from './components/Leads';
+import Deals from './components/Deals';
+import Teams from './components/Teams';
+import Marketing from './components/Marketing';
+import EmailMarketing from './components/EmailMarketing';
 
 // Import Shadcn UI components
 import { Button } from './components/ui/button';
