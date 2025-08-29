@@ -511,6 +511,42 @@ const EmailMarketing = () => {
     setIsTemplateDialogOpen(false);
   };
 
+  const handleDeleteCampaign = async (campaignId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta campaña?')) {
+      try {
+        setCampaigns(campaigns.filter(c => c.id !== campaignId));
+        toast.success('Campaña eliminada exitosamente');
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        toast.error('Error al eliminar campaña');
+      }
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta plantilla?')) {
+      try {
+        setTemplates(templates.filter(t => t.id !== templateId));
+        toast.success('Plantilla eliminada exitosamente');
+      } catch (error) {
+        console.error('Error deleting template:', error);
+        toast.error('Error al eliminar plantilla');
+      }
+    }
+  };
+
+  const handleDeleteAutomation = async (automationId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta automatización?')) {
+      try {
+        setAutomations(automations.filter(a => a.id !== automationId));
+        toast.success('Automatización eliminada exitosamente');
+      } catch (error) {
+        console.error('Error deleting automation:', error);
+        toast.error('Error al eliminar automatización');
+      }
+    }
+  };
+
   const resetAutomationForm = () => {
     setAutomationFormData({
       name: '',
