@@ -9,6 +9,9 @@ import Deals from './components/Deals';
 import Teams from './components/Teams';
 import Marketing from './components/Marketing';
 import EmailMarketing from './components/EmailMarketing';
+import Activities from './components/Activities';
+import Reports from './components/Reports';
+import Tickets from './components/Tickets';
 
 // Import Shadcn UI components
 import { Button } from './components/ui/button';
