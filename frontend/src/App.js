@@ -235,6 +235,9 @@ const Layout = ({ children }) => {
     { name: 'Leads', icon: UserPlus, path: '/leads' },
     { name: 'Oportunidades', icon: TrendingUp, path: '/deals' },
     { name: 'Actividades', icon: Calendar, path: '/activities' },
+    { name: 'Equipos', icon: Users, path: '/teams' },
+    { name: 'Marketing', icon: Megaphone, path: '/marketing' },
+    { name: 'Email Marketing', icon: Mail, path: '/email-marketing' },
     { name: 'Reportes', icon: BarChart3, path: '/reports' },
   ];
 
