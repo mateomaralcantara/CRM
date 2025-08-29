@@ -2,7 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from supabase import create_client, Client
 import os
 import logging
 from pathlib import Path
@@ -12,26 +12,16 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.context import CryptContext
-import pymongo
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Supabase connection
+supabase_url = os.environ['SUPABASE_URL']
+supabase_key = os.environ['SUPABASE_SERVICE_KEY']
+supabase_anon_key = os.environ['SUPABASE_ANON_KEY']
 
-# Create indexes
-async def create_indexes():
-    try:
-        await db.users.create_index("email", unique=True)
-        await db.contacts.create_index([("company_id", 1), ("email", 1)])
-        await db.leads.create_index([("status", 1), ("created_at", -1)])
-        await db.deals.create_index([("pipeline_stage", 1), ("created_at", -1)])
-        await db.activities.create_index([("contact_id", 1), ("created_at", -1)])
-    except:
-        pass
+supabase: Client = create_client(supabase_url, supabase_key)
 
 # Security
 SECRET_KEY = "crm-secret-key-change-in-production"
@@ -42,7 +32,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 # Create the main app
-app = FastAPI(title="CRM API", version="1.0.0")
+app = FastAPI(title="CRM API with Supabase", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 # Auth Models
@@ -183,252 +173,412 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     
-    user = await db.users.find_one({"email": email})
-    if user is None:
+    try:
+        result = supabase.table('profiles').select("*").eq('email', email).execute()
+        if not result.data:
+            raise HTTPException(status_code=401, detail="User not found")
+        user_data = result.data[0]
+        return User(**user_data)
+    except Exception as e:
         raise HTTPException(status_code=401, detail="User not found")
-    return User(**user)
 
 # Auth Routes
 @api_router.post("/auth/register", response_model=User)
 async def register(user: UserCreate):
-    existing_user = await db.users.find_one({"email": user.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
-    user_dict = user.dict()
-    del user_dict['password']
-    user_obj = User(**user_dict)
-    user_data = user_obj.dict()
-    user_data['password'] = hashed_password
-    
-    await db.users.insert_one(user_data)
-    return user_obj
+    try:
+        # Create user in Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": user.email,
+            "password": user.password
+        })
+        
+        if auth_response.user is None:
+            raise HTTPException(status_code=400, detail="Registration failed")
+        
+        user_id = auth_response.user.id
+        
+        # Create profile in profiles table
+        profile_data = {
+            "id": user_id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        result = supabase.table('profiles').insert(profile_data).execute()
+        
+        return User(
+            id=user_id,
+            name=user.name,
+            email=user.email,
+            role=user.role,
+            created_at=datetime.now(timezone.utc)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
-    db_user = await db.users.find_one({"email": user.email})
-    if not db_user or not verify_password(user.password, db_user['password']):
+    try:
+        # Authenticate with Supabase Auth
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": user.email,
+            "password": user.password
+        })
+        
+        if auth_response.user is None:
+            raise HTTPException(status_code=400, detail="Invalid credentials")
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.email}, expires_delta=access_token_expires
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
+        
+    except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 # Dashboard Route
 @api_router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
-    total_contacts = await db.contacts.count_documents({})
-    total_leads = await db.leads.count_documents({})
-    total_deals = await db.deals.count_documents({})
-    
-    # Calculate total revenue (closed won deals)
-    pipeline = [
-        {"$match": {"pipeline_stage": "closed_won"}},
-        {"$group": {"_id": None, "total": {"$sum": "$value"}}}
-    ]
-    revenue_result = await db.deals.aggregate(pipeline).to_list(1)
-    total_revenue = revenue_result[0]["total"] if revenue_result else 0
-    
-    # Calculate conversion rate
-    converted_leads = await db.leads.count_documents({"status": "converted"})
-    conversion_rate = (converted_leads / total_leads * 100) if total_leads > 0 else 0
-    
-    # Recent activities
-    activities = await db.activities.find().sort("created_at", -1).limit(5).to_list(5)
-    recent_activities = [Activity(**activity) for activity in activities]
-    
-    return DashboardStats(
-        total_contacts=total_contacts,
-        total_leads=total_leads,
-        total_deals=total_deals,
-        total_revenue=total_revenue,
-        conversion_rate=conversion_rate,
-        recent_activities=recent_activities
-    )
+    try:
+        # Get counts
+        contacts_result = supabase.table('contacts').select("id", count="exact").execute()
+        leads_result = supabase.table('leads').select("id", count="exact").execute()
+        deals_result = supabase.table('deals').select("id", count="exact").execute()
+        
+        total_contacts = contacts_result.count or 0
+        total_leads = leads_result.count or 0
+        total_deals = deals_result.count or 0
+        
+        # Calculate total revenue (closed won deals)
+        won_deals = supabase.table('deals').select("value").eq('pipeline_stage', 'closed_won').execute()
+        total_revenue = sum(deal['value'] for deal in won_deals.data) if won_deals.data else 0
+        
+        # Calculate conversion rate
+        converted_leads = supabase.table('leads').select("id", count="exact").eq('status', 'converted').execute()
+        conversion_rate = (converted_leads.count / total_leads * 100) if total_leads > 0 else 0
+        
+        # Recent activities
+        activities_result = supabase.table('activities').select("*").order('created_at', desc=True).limit(5).execute()
+        recent_activities = [Activity(**activity) for activity in activities_result.data] if activities_result.data else []
+        
+        return DashboardStats(
+            total_contacts=total_contacts,
+            total_leads=total_leads,
+            total_deals=total_deals,
+            total_revenue=total_revenue,
+            conversion_rate=conversion_rate,
+            recent_activities=recent_activities
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching dashboard stats: {str(e)}")
 
 # Contact Routes
 @api_router.post("/contacts", response_model=Contact)
 async def create_contact(contact: ContactCreate, current_user: User = Depends(get_current_user)):
-    contact_obj = Contact(**contact.dict())
-    await db.contacts.insert_one(contact_obj.dict())
-    return contact_obj
+    try:
+        contact_data = contact.dict()
+        contact_data['id'] = str(uuid.uuid4())
+        contact_data['created_by'] = current_user.id
+        contact_data['created_at'] = datetime.now(timezone.utc).isoformat()
+        contact_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('contacts').insert(contact_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create contact")
+            
+        return Contact(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating contact: {str(e)}")
 
 @api_router.get("/contacts", response_model=List[Contact])
 async def get_contacts(current_user: User = Depends(get_current_user)):
-    contacts = await db.contacts.find().sort("created_at", -1).to_list(1000)
-    return [Contact(**contact) for contact in contacts]
+    try:
+        result = supabase.table('contacts').select("*").order('created_at', desc=True).execute()
+        return [Contact(**contact) for contact in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching contacts: {str(e)}")
 
 @api_router.get("/contacts/{contact_id}", response_model=Contact)
 async def get_contact(contact_id: str, current_user: User = Depends(get_current_user)):
-    contact = await db.contacts.find_one({"id": contact_id})
-    if not contact:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    return Contact(**contact)
+    try:
+        result = supabase.table('contacts').select("*").eq('id', contact_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+            
+        return Contact(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching contact: {str(e)}")
 
 @api_router.put("/contacts/{contact_id}", response_model=Contact)
 async def update_contact(contact_id: str, contact_update: ContactCreate, current_user: User = Depends(get_current_user)):
-    update_data = contact_update.dict()
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.contacts.update_one(
-        {"id": contact_id}, 
-        {"$set": update_data}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    
-    updated_contact = await db.contacts.find_one({"id": contact_id})
-    return Contact(**updated_contact)
+    try:
+        update_data = contact_update.dict()
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('contacts').update(update_data).eq('id', contact_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+            
+        return Contact(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating contact: {str(e)}")
 
 @api_router.delete("/contacts/{contact_id}")
 async def delete_contact(contact_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.contacts.delete_one({"id": contact_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    return {"message": "Contact deleted successfully"}
+    try:
+        result = supabase.table('contacts').delete().eq('id', contact_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Contact not found")
+            
+        return {"message": "Contact deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting contact: {str(e)}")
 
 # Lead Routes
 @api_router.post("/leads", response_model=Lead)
 async def create_lead(lead: LeadCreate, current_user: User = Depends(get_current_user)):
-    lead_obj = Lead(**lead.dict())
-    await db.leads.insert_one(lead_obj.dict())
-    return lead_obj
+    try:
+        lead_data = lead.dict()
+        lead_data['id'] = str(uuid.uuid4())
+        lead_data['created_by'] = current_user.id
+        lead_data['created_at'] = datetime.now(timezone.utc).isoformat()
+        lead_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('leads').insert(lead_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create lead")
+            
+        return Lead(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating lead: {str(e)}")
 
 @api_router.get("/leads", response_model=List[Lead])
 async def get_leads(current_user: User = Depends(get_current_user)):
-    leads = await db.leads.find().sort("created_at", -1).to_list(1000)
-    return [Lead(**lead) for lead in leads]
+    try:
+        result = supabase.table('leads').select("*").order('created_at', desc=True).execute()
+        return [Lead(**lead) for lead in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching leads: {str(e)}")
 
 @api_router.put("/leads/{lead_id}", response_model=Lead)
 async def update_lead(lead_id: str, lead_update: LeadCreate, current_user: User = Depends(get_current_user)):
-    update_data = lead_update.dict()
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.leads.update_one({"id": lead_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    
-    updated_lead = await db.leads.find_one({"id": lead_id})
-    return Lead(**updated_lead)
+    try:
+        update_data = lead_update.dict()
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('leads').update(update_data).eq('id', lead_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Lead not found")
+            
+        return Lead(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating lead: {str(e)}")
+
+@api_router.delete("/leads/{lead_id}")
+async def delete_lead(lead_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        result = supabase.table('leads').delete().eq('id', lead_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Lead not found")
+            
+        return {"message": "Lead deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting lead: {str(e)}")
 
 # Deal Routes
 @api_router.post("/deals", response_model=Deal)
 async def create_deal(deal: DealCreate, current_user: User = Depends(get_current_user)):
-    deal_obj = Deal(**deal.dict())
-    await db.deals.insert_one(deal_obj.dict())
-    return deal_obj
+    try:
+        deal_data = deal.dict()
+        deal_data['id'] = str(uuid.uuid4())
+        deal_data['created_by'] = current_user.id
+        deal_data['created_at'] = datetime.now(timezone.utc).isoformat()
+        deal_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('deals').insert(deal_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create deal")
+            
+        return Deal(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating deal: {str(e)}")
 
 @api_router.get("/deals", response_model=List[Deal])
 async def get_deals(current_user: User = Depends(get_current_user)):
-    deals = await db.deals.find().sort("created_at", -1).to_list(1000)
-    return [Deal(**deal) for deal in deals]
+    try:
+        result = supabase.table('deals').select("*").order('created_at', desc=True).execute()
+        return [Deal(**deal) for deal in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching deals: {str(e)}")
 
 @api_router.put("/deals/{deal_id}", response_model=Deal)
 async def update_deal(deal_id: str, deal_update: DealCreate, current_user: User = Depends(get_current_user)):
-    update_data = deal_update.dict()
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.deals.update_one({"id": deal_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    
-    updated_deal = await db.deals.find_one({"id": deal_id})
-    return Deal(**updated_deal)
+    try:
+        update_data = deal_update.dict()
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('deals').update(update_data).eq('id', deal_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Deal not found")
+            
+        return Deal(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating deal: {str(e)}")
+
+@api_router.delete("/deals/{deal_id}")
+async def delete_deal(deal_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        result = supabase.table('deals').delete().eq('id', deal_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Deal not found")
+            
+        return {"message": "Deal deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting deal: {str(e)}")
 
 # Activity Routes
 @api_router.post("/activities", response_model=Activity)
 async def create_activity(activity: ActivityCreate, current_user: User = Depends(get_current_user)):
-    activity_obj = Activity(**activity.dict())
-    await db.activities.insert_one(activity_obj.dict())
-    return activity_obj
+    try:
+        activity_data = activity.dict()
+        activity_data['id'] = str(uuid.uuid4())
+        activity_data['created_by'] = current_user.id
+        activity_data['created_at'] = datetime.now(timezone.utc).isoformat()
+        
+        # Handle due_date conversion
+        if activity_data.get('due_date'):
+            activity_data['due_date'] = activity_data['due_date'].isoformat()
+        
+        result = supabase.table('activities').insert(activity_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create activity")
+            
+        return Activity(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating activity: {str(e)}")
 
 @api_router.get("/activities", response_model=List[Activity])
 async def get_activities(contact_id: Optional[str] = None, current_user: User = Depends(get_current_user)):
-    query = {}
-    if contact_id:
-        query["contact_id"] = contact_id
-    
-    activities = await db.activities.find(query).sort("created_at", -1).to_list(1000)
-    return [Activity(**activity) for activity in activities]
+    try:
+        query = supabase.table('activities').select("*")
+        
+        if contact_id:
+            query = query.eq('contact_id', contact_id)
+            
+        result = query.order('created_at', desc=True).execute()
+        return [Activity(**activity) for activity in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching activities: {str(e)}")
 
 @api_router.put("/activities/{activity_id}", response_model=Activity)
 async def update_activity(activity_id: str, activity_update: ActivityCreate, current_user: User = Depends(get_current_user)):
-    update_data = activity_update.dict()
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    result = await db.activities.update_one({"id": activity_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Activity not found")
-    
-    updated_activity = await db.activities.find_one({"id": activity_id})
-    return Activity(**updated_activity)
+    try:
+        update_data = activity_update.dict()
+        
+        # Handle due_date conversion
+        if update_data.get('due_date'):
+            update_data['due_date'] = update_data['due_date'].isoformat()
+        
+        result = supabase.table('activities').update(update_data).eq('id', activity_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Activity not found")
+            
+        return Activity(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating activity: {str(e)}")
 
 @api_router.delete("/activities/{activity_id}")
 async def delete_activity(activity_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.activities.delete_one({"id": activity_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Activity not found")
-    return {"message": "Activity deleted successfully"}
-
-@api_router.delete("/deals/{deal_id}")
-async def delete_deal(deal_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.deals.delete_one({"id": deal_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    return {"message": "Deal deleted successfully"}
-
-@api_router.delete("/leads/{lead_id}")
-async def delete_lead(lead_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.leads.delete_one({"id": lead_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return {"message": "Lead deleted successfully"}
+    try:
+        result = supabase.table('activities').delete().eq('id', activity_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Activity not found")
+            
+        return {"message": "Activity deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting activity: {str(e)}")
 
 # Search Route
 @api_router.get("/search")
 async def search(q: str, type: str = "all", current_user: User = Depends(get_current_user)):
-    results = {"contacts": [], "leads": [], "deals": []}
-    
-    if type in ["all", "contacts"]:
-        contacts = await db.contacts.find({
-            "$or": [
-                {"first_name": {"$regex": q, "$options": "i"}},
-                {"last_name": {"$regex": q, "$options": "i"}},
-                {"email": {"$regex": q, "$options": "i"}},
-                {"company": {"$regex": q, "$options": "i"}}
-            ]
-        }).limit(10).to_list(10)
-        results["contacts"] = [Contact(**contact) for contact in contacts]
-    
-    if type in ["all", "leads"]:
-        leads = await db.leads.find({
-            "$or": [
-                {"source": {"$regex": q, "$options": "i"}},
-                {"status": {"$regex": q, "$options": "i"}},
-                {"notes": {"$regex": q, "$options": "i"}}
-            ]
-        }).limit(10).to_list(10)
-        results["leads"] = [Lead(**lead) for lead in leads]
-    
-    if type in ["all", "deals"]:
-        deals = await db.deals.find({
-            "$or": [
-                {"title": {"$regex": q, "$options": "i"}},
-                {"pipeline_stage": {"$regex": q, "$options": "i"}},
-                {"notes": {"$regex": q, "$options": "i"}}
-            ]
-        }).limit(10).to_list(10)
-        results["deals"] = [Deal(**deal) for deal in deals]
-    
-    return results
+    try:
+        results = {"contacts": [], "leads": [], "deals": []}
+        
+        if type in ["all", "contacts"]:
+            contacts_result = supabase.table('contacts').select("*").or_(f'first_name.ilike.%{q}%,last_name.ilike.%{q}%,email.ilike.%{q}%,company.ilike.%{q}%').limit(10).execute()
+            results["contacts"] = [Contact(**contact) for contact in contacts_result.data] if contacts_result.data else []
+        
+        if type in ["all", "leads"]:
+            leads_result = supabase.table('leads').select("*").or_(f'source.ilike.%{q}%,status.ilike.%{q}%,notes.ilike.%{q}%').limit(10).execute()
+            results["leads"] = [Lead(**lead) for lead in leads_result.data] if leads_result.data else []
+        
+        if type in ["all", "deals"]:
+            deals_result = supabase.table('deals').select("*").or_(f'title.ilike.%{q}%,pipeline_stage.ilike.%{q}%,notes.ilike.%{q}%').limit(10).execute()
+            results["deals"] = [Deal(**deal) for deal in deals_result.data] if deals_result.data else []
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching: {str(e)}")
 
 # Health check
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
+    try:
+        # Test Supabase connection
+        result = supabase.table('profiles').select("id").limit(1).execute()
+        return {"status": "healthy", "timestamp": datetime.now(timezone.utc), "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "timestamp": datetime.now(timezone.utc), "database": "disconnected", "error": str(e)}
 
 # Include the router
 app.include_router(api_router)
@@ -449,10 +599,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("startup")
-async def startup_db_client():
-    await create_indexes()
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
