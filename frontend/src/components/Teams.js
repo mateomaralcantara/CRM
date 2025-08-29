@@ -246,6 +246,18 @@ const Teams = () => {
     }
   };
 
+  const handleDeleteTeam = async (teamId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este equipo?')) {
+      try {
+        setTeams(teams.filter(t => t.id !== teamId));
+        toast.success('Equipo eliminado exitosamente');
+      } catch (error) {
+        console.error('Error deleting team:', error);
+        toast.error('Error al eliminar equipo');
+      }
+    }
+  };
+
   const toggleUserStatus = async (userId) => {
     try {
       const updatedUsers = users.map(user => 
