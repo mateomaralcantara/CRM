@@ -219,7 +219,7 @@ const Contacts = () => {
           )}
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
-            Exportar
+            Exportar {selectedContacts.length > 0 ? `(${selectedContacts.length})` : 'Todo'}
           </Button>
           <Button variant="outline" size="sm">
             <Upload className="h-4 w-4 mr-2" />
