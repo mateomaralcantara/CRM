@@ -116,6 +116,9 @@ backend:
         - working: true
           agent: "main"
           comment: "DELETE endpoint ya implementado en líneas 286-291, funciona correctamente con confirmación"
+        - working: true
+          agent: "testing"
+          comment: "✅ VERIFIED: DELETE /api/contacts/{id} funciona correctamente. Prueba exitosa con contacto real creado y eliminado. Retorna status 200 y mensaje de confirmación."
 
   - task: "DELETE endpoint for leads"
     implemented: true
@@ -128,6 +131,9 @@ backend:
         - working: true
           agent: "main"
           comment: "DELETE endpoint ya implementado en líneas 383-388, funciona correctamente"
+        - working: true
+          agent: "testing"
+          comment: "✅ VERIFIED: DELETE /api/leads/{id} funciona correctamente. Prueba exitosa con lead real creado y eliminado. Retorna status 200 y mensaje de confirmación."
 
   - task: "DELETE endpoint for deals"
     implemented: true
@@ -140,6 +146,9 @@ backend:
         - working: true
           agent: "main"
           comment: "DELETE endpoint ya implementado en líneas 376-381, funciona correctamente"
+        - working: true
+          agent: "testing"
+          comment: "✅ VERIFIED: DELETE /api/deals/{id} funciona correctamente. Prueba exitosa con deal real creado y eliminado. Retorna status 200 y mensaje de confirmación."
 
   - task: "DELETE endpoint for activities"
     implemented: true
@@ -152,6 +161,9 @@ backend:
         - working: true
           agent: "main"
           comment: "DELETE endpoint ya implementado en líneas 369-374, funciona correctamente"
+        - working: true
+          agent: "testing"
+          comment: "✅ VERIFIED: DELETE /api/activities/{id} funciona correctamente. Prueba exitosa con actividad real creada y eliminada. Retorna status 200 y mensaje de confirmación."
 
 frontend:
   - task: "Delete functionality in Contacts component"
