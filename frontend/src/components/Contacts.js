@@ -451,6 +451,14 @@ const Contacts = () => {
                 {filteredContacts.map((contact) => (
                   <TableRow key={contact.id} className="hover:bg-gray-50">
                     <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedContacts.includes(contact.id)}
+                        onChange={() => handleSelectContact(contact.id)}
+                        className="rounded border-gray-300"
+                      />
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar>
                           <AvatarFallback className="bg-blue-100 text-blue-600">
