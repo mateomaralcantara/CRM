@@ -119,6 +119,43 @@ const Contacts = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedContacts.length === 0) {
+      toast.error('Selecciona al menos un contacto');
+      return;
+    }
+    
+    if (window.confirm(`¿Estás seguro de que quieres eliminar ${selectedContacts.length} contactos?`)) {
+      try {
+        // In a real implementation, you'd make bulk delete API calls
+        setContacts(contacts.filter(c => !selectedContacts.includes(c.id)));
+        setSelectedContacts([]);
+        setSelectAll(false);
+        toast.success(`${selectedContacts.length} contactos eliminados exitosamente`);
+      } catch (error) {
+        console.error('Error bulk deleting contacts:', error);
+        toast.error('Error al eliminar contactos');
+      }
+    }
+  };
+
+  const handleSelectContact = (contactId) => {
+    if (selectedContacts.includes(contactId)) {
+      setSelectedContacts(selectedContacts.filter(id => id !== contactId));
+    } else {
+      setSelectedContacts([...selectedContacts, contactId]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedContacts([]);
+    } else {
+      setSelectedContacts(filteredContacts.map(c => c.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
   const resetForm = () => {
     setFormData({
       first_name: '',
