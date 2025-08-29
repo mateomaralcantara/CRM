@@ -430,6 +430,14 @@ const Contacts = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                  </TableHead>
                   <TableHead>Contacto</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Teléfono</TableHead>
