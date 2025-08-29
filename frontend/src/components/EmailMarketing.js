@@ -1280,6 +1280,14 @@ const EmailMarketing = () => {
                         <Badge className={automation.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {automation.is_active ? 'Activa' : 'Inactiva'}
                         </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteAutomation(automation.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
 
