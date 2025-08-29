@@ -340,33 +340,33 @@ class CRMAPITester:
         """Test deleting a non-existent contact - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'contacts/{fake_id}', expected_status=404)
-        success = data is None and error is not None  # Should fail with 404
+        success = error is not None and "404" in str(error)  # Should get 404 error
         
-        return self.log_test("Delete Non-existent Contact", success, "Correctly returned 404 for non-existent contact")
+        return self.log_test("Delete Non-existent Contact", success, f"Got expected 404 error: {error}")
 
     def test_delete_nonexistent_lead(self):
         """Test deleting a non-existent lead - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'leads/{fake_id}', expected_status=404)
-        success = data is None and error is not None  # Should fail with 404
+        success = error is not None and "404" in str(error)  # Should get 404 error
         
-        return self.log_test("Delete Non-existent Lead", success, "Correctly returned 404 for non-existent lead")
+        return self.log_test("Delete Non-existent Lead", success, f"Got expected 404 error: {error}")
 
     def test_delete_nonexistent_deal(self):
         """Test deleting a non-existent deal - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'deals/{fake_id}', expected_status=404)
-        success = data is None and error is not None  # Should fail with 404
+        success = error is not None and "404" in str(error)  # Should get 404 error
         
-        return self.log_test("Delete Non-existent Deal", success, "Correctly returned 404 for non-existent deal")
+        return self.log_test("Delete Non-existent Deal", success, f"Got expected 404 error: {error}")
 
     def test_delete_nonexistent_activity(self):
         """Test deleting a non-existent activity - ERROR HANDLING"""
         fake_id = str(uuid.uuid4())
         data, error = self.make_request('DELETE', f'activities/{fake_id}', expected_status=404)
-        success = data is None and error is not None  # Should fail with 404
+        success = error is not None and "404" in str(error)  # Should get 404 error
         
-        return self.log_test("Delete Non-existent Activity", success, "Correctly returned 404 for non-existent activity")
+        return self.log_test("Delete Non-existent Activity", success, f"Got expected 404 error: {error}")
 
     def cleanup_test_data(self):
         """Clean up any remaining test data"""
