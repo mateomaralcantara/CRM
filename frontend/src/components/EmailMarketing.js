@@ -1132,6 +1132,14 @@ const EmailMarketing = () => {
                           <Edit className="h-4 w-4 mr-1" />
                           Editar
                         </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
