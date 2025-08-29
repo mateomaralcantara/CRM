@@ -18,6 +18,8 @@ class CRMAPITester:
         self.created_lead_id = None
         self.created_deal_id = None
         self.created_activity_id = None
+        self.test_user_email = None
+        self.test_user_password = "testpass123"
 
     def log_test(self, name, success, details=""):
         """Log test results"""
