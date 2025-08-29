@@ -206,6 +206,17 @@ const Contacts = () => {
           <p className="text-gray-600 mt-1">Gestiona tu base de datos de contactos</p>
         </div>
         <div className="flex items-center space-x-3">
+          {selectedContacts.length > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleBulkDelete}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Eliminar ({selectedContacts.length})
+            </Button>
+          )}
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Exportar
