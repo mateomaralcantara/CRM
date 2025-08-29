@@ -242,6 +242,7 @@ const Layout = ({ children }) => {
     { name: 'Equipos', icon: Users, path: '/teams' },
     { name: 'Marketing', icon: Megaphone, path: '/marketing' },
     { name: 'Email Marketing', icon: Mail, path: '/email-marketing' },
+    { name: 'Tickets', icon: Ticket, path: '/tickets' },
     { name: 'Reportes', icon: BarChart3, path: '/reports' },
   ];
 
