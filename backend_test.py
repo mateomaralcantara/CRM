@@ -263,7 +263,10 @@ class CRMAPITester:
         data, error = self.make_request('POST', 'activities', activity_data, 200)
         success = data is not None and 'id' in data and data['title'] == activity_data['title']
         
-        return self.log_test("Create Activity", success, error or f"Activity created: {data.get('title', 'Unknown') if data else 'None'}")
+        if success:
+            self.created_activity_id = data['id']
+        
+        return self.log_test("Create Activity", success, error or f"Activity ID: {self.created_activity_id}")
 
     def test_get_activities(self):
         """Test retrieving all activities"""
