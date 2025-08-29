@@ -326,6 +326,30 @@ const Marketing = () => {
     setIsCampaignDialogOpen(false);
   };
 
+  const handleDeleteCampaign = async (campaignId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta campaña?')) {
+      try {
+        setCampaigns(campaigns.filter(c => c.id !== campaignId));
+        toast.success('Campaña eliminada exitosamente');
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        toast.error('Error al eliminar campaña');
+      }
+    }
+  };
+
+  const handleDeleteSegment = async (segmentId) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este segmento?')) {
+      try {
+        setSegments(segments.filter(s => s.id !== segmentId));
+        toast.success('Segmento eliminado exitosamente');
+      } catch (error) {
+        console.error('Error deleting segment:', error);
+        toast.error('Error al eliminar segmento');
+      }
+    }
+  };
+
   const resetSegmentForm = () => {
     setSegmentFormData({
       name: '',
