@@ -7,7 +7,7 @@ from datetime import datetime
 import uuid
 
 class CRMAPITester:
-    def __init__(self, base_url="https://local-crm-kit.preview.emergentagent.com"):
+    def __init__(self, base_url="https://member-admin-1.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.token = None
