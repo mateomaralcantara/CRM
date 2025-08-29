@@ -558,8 +558,11 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/contacts" element={<Contacts />} />
         <Route path="/leads" element={<Leads />} />
-        <Route path="/deals" element={<div className="p-6"><h1 className="text-2xl font-bold">Oportunidades - En desarrollo</h1></div>} />
+        <Route path="/deals" element={<Deals />} />
         <Route path="/activities" element={<div className="p-6"><h1 className="text-2xl font-bold">Actividades - En desarrollo</h1></div>} />
+        <Route path="/teams" element={<Teams />} />
+        <Route path="/marketing" element={<Marketing />} />
+        <Route path="/email-marketing" element={<EmailMarketing />} />
         <Route path="/reports" element={<div className="p-6"><h1 className="text-2xl font-bold">Reportes - En desarrollo</h1></div>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Routes>
