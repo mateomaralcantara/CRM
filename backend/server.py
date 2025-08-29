@@ -354,6 +354,39 @@ async def get_activities(contact_id: Optional[str] = None, current_user: User = 
     activities = await db.activities.find(query).sort("created_at", -1).to_list(1000)
     return [Activity(**activity) for activity in activities]
 
+@api_router.put("/activities/{activity_id}", response_model=Activity)
+async def update_activity(activity_id: str, activity_update: ActivityCreate, current_user: User = Depends(get_current_user)):
+    update_data = activity_update.dict()
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    result = await db.activities.update_one({"id": activity_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    
+    updated_activity = await db.activities.find_one({"id": activity_id})
+    return Activity(**updated_activity)
+
+@api_router.delete("/activities/{activity_id}")
+async def delete_activity(activity_id: str, current_user: User = Depends(get_current_user)):
+    result = await db.activities.delete_one({"id": activity_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return {"message": "Activity deleted successfully"}
+
+@api_router.delete("/deals/{deal_id}")
+async def delete_deal(deal_id: str, current_user: User = Depends(get_current_user)):
+    result = await db.deals.delete_one({"id": deal_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return {"message": "Deal deleted successfully"}
+
+@api_router.delete("/leads/{lead_id}")
+async def delete_lead(lead_id: str, current_user: User = Depends(get_current_user)):
+    result = await db.leads.delete_one({"id": lead_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return {"message": "Lead deleted successfully"}
+
 # Search Route
 @api_router.get("/search")
 async def search(q: str, type: str = "all", current_user: User = Depends(get_current_user)):
