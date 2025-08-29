@@ -290,6 +290,86 @@ class CRMAPITester:
         
         return self.log_test("Search Functionality", success, error or details)
 
+    def test_delete_contact(self):
+        """Test deleting a contact - MAIN DELETE FUNCTIONALITY"""
+        if not self.created_contact_id:
+            return self.log_test("Delete Contact", False, "No contact ID available")
+        
+        data, error = self.make_request('DELETE', f'contacts/{self.created_contact_id}', expected_status=200)
+        success = data is not None and 'message' in data
+        
+        if success:
+            # Verify contact is actually deleted by trying to get it
+            verify_data, verify_error = self.make_request('GET', f'contacts/{self.created_contact_id}', expected_status=404)
+            success = verify_data is None  # Should be None for 404
+            details = f"Contact deleted and verified: {success}"
+        else:
+            details = error
+        
+        return self.log_test("Delete Contact", success, details)
+
+    def test_delete_lead(self):
+        """Test deleting a lead - MAIN DELETE FUNCTIONALITY"""
+        if not self.created_lead_id:
+            return self.log_test("Delete Lead", False, "No lead ID available")
+        
+        data, error = self.make_request('DELETE', f'leads/{self.created_lead_id}', expected_status=200)
+        success = data is not None and 'message' in data
+        
+        return self.log_test("Delete Lead", success, error or f"Lead deleted successfully")
+
+    def test_delete_deal(self):
+        """Test deleting a deal - MAIN DELETE FUNCTIONALITY"""
+        if not self.created_deal_id:
+            return self.log_test("Delete Deal", False, "No deal ID available")
+        
+        data, error = self.make_request('DELETE', f'deals/{self.created_deal_id}', expected_status=200)
+        success = data is not None and 'message' in data
+        
+        return self.log_test("Delete Deal", success, error or f"Deal deleted successfully")
+
+    def test_delete_activity(self):
+        """Test deleting an activity - MAIN DELETE FUNCTIONALITY"""
+        if not self.created_activity_id:
+            return self.log_test("Delete Activity", False, "No activity ID available")
+        
+        data, error = self.make_request('DELETE', f'activities/{self.created_activity_id}', expected_status=200)
+        success = data is not None and 'message' in data
+        
+        return self.log_test("Delete Activity", success, error or f"Activity deleted successfully")
+
+    def test_delete_nonexistent_contact(self):
+        """Test deleting a non-existent contact - ERROR HANDLING"""
+        fake_id = str(uuid.uuid4())
+        data, error = self.make_request('DELETE', f'contacts/{fake_id}', expected_status=404)
+        success = data is None  # Should fail with 404
+        
+        return self.log_test("Delete Non-existent Contact", success, "Correctly returned 404 for non-existent contact")
+
+    def test_delete_nonexistent_lead(self):
+        """Test deleting a non-existent lead - ERROR HANDLING"""
+        fake_id = str(uuid.uuid4())
+        data, error = self.make_request('DELETE', f'leads/{fake_id}', expected_status=404)
+        success = data is None  # Should fail with 404
+        
+        return self.log_test("Delete Non-existent Lead", success, "Correctly returned 404 for non-existent lead")
+
+    def test_delete_nonexistent_deal(self):
+        """Test deleting a non-existent deal - ERROR HANDLING"""
+        fake_id = str(uuid.uuid4())
+        data, error = self.make_request('DELETE', f'deals/{fake_id}', expected_status=404)
+        success = data is None  # Should fail with 404
+        
+        return self.log_test("Delete Non-existent Deal", success, "Correctly returned 404 for non-existent deal")
+
+    def test_delete_nonexistent_activity(self):
+        """Test deleting a non-existent activity - ERROR HANDLING"""
+        fake_id = str(uuid.uuid4())
+        data, error = self.make_request('DELETE', f'activities/{fake_id}', expected_status=404)
+        success = data is None  # Should fail with 404
+        
+        return self.log_test("Delete Non-existent Activity", success, "Correctly returned 404 for non-existent activity")
+
     def cleanup_test_data(self):
         """Clean up created test data"""
         cleanup_results = []
