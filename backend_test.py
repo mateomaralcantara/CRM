@@ -371,13 +371,17 @@ class CRMAPITester:
         return self.log_test("Delete Non-existent Activity", success, "Correctly returned 404 for non-existent activity")
 
     def cleanup_test_data(self):
-        """Clean up created test data"""
+        """Clean up any remaining test data"""
         cleanup_results = []
         
-        # Delete created contact (this should cascade to leads)
+        # Note: Most data should already be deleted by the delete tests
+        # This is just a safety cleanup for any remaining data
+        
         if self.created_contact_id:
             data, error = self.make_request('DELETE', f'contacts/{self.created_contact_id}', expected_status=200)
-            cleanup_results.append(f"Contact cleanup: {'Success' if data else 'Failed'}")
+            if not data:  # If delete failed, it might already be deleted
+                data, error = self.make_request('DELETE', f'contacts/{self.created_contact_id}', expected_status=404)
+            cleanup_results.append(f"Contact cleanup: {'Success' if data or error else 'Already deleted'}")
         
         return cleanup_results
 
