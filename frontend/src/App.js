@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Toaster } from 'sonner';
 import './App.css';
 import Contacts from './components/Contacts';
+import Leads from './components/Leads';
 
 // Import Shadcn UI components
 import { Button } from './components/ui/button';
