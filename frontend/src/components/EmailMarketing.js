@@ -661,7 +661,7 @@ const EmailMarketing = () => {
                     className="font-mono text-sm"
                   />
                   <p className="text-xs text-gray-500">
-                    Variables disponibles: {{`{first_name}`}}, {{`{last_name}`}}, {{`{company_name}`}}, {{`{email}`}}
+                    Variables disponibles: {'{first_name}'}, {'{last_name}'}, {'{company_name}'}, {'{email}'}
                   </p>
                 </div>
 
