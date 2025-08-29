@@ -408,7 +408,17 @@ class CRMAPITester:
             self.test_get_deals,
             self.test_create_activity,
             self.test_get_activities,
-            self.test_search_functionality
+            self.test_search_functionality,
+            # DELETE FUNCTIONALITY TESTS - MAIN FOCUS
+            self.test_delete_contact,
+            self.test_delete_lead,
+            self.test_delete_deal,
+            self.test_delete_activity,
+            # ERROR HANDLING TESTS
+            self.test_delete_nonexistent_contact,
+            self.test_delete_nonexistent_lead,
+            self.test_delete_nonexistent_deal,
+            self.test_delete_nonexistent_activity
         ]
         
         # Run tests
