@@ -18,10 +18,12 @@ load_dotenv(ROOT_DIR / '.env')
 
 # Supabase connection
 supabase_url = os.environ['SUPABASE_URL']
-supabase_key = os.environ['SUPABASE_SERVICE_KEY']
+supabase_service_key = os.environ['SUPABASE_SERVICE_KEY']
 supabase_anon_key = os.environ['SUPABASE_ANON_KEY']
 
-supabase: Client = create_client(supabase_url, supabase_key)
+# Create two clients: one for auth (anon) and one for admin operations (service)
+supabase_auth: Client = create_client(supabase_url, supabase_anon_key)  # For authentication
+supabase: Client = create_client(supabase_url, supabase_service_key)    # For database operations
 
 # Security
 SECRET_KEY = "crm-secret-key-change-in-production"
