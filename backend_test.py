@@ -74,7 +74,7 @@ class CRMAPITester:
         """Test user registration - CRITICAL: Error al guardar contacto issue"""
         # Use a more realistic email with timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.test_user_email = f"admin_{timestamp}@crm-test.com"
+        self.test_user_email = f"admin{timestamp}@example.com"
         test_user = {
             "name": "Admin Test User",
             "email": self.test_user_email,
