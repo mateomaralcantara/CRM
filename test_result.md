@@ -137,6 +137,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ VERIFIED: DELETE /api/leads/{id} funciona correctamente. Prueba exitosa con lead real creado y eliminado. Retorna status 200 y mensaje de confirmación."
+        - working: true
+          agent: "testing"
+          comment: "✅ SUPABASE VERIFIED: DELETE /api/leads/{id} funciona perfectamente con Supabase PostgreSQL. Lead creado con datos realistas (source: website, status: new, score: 85) y eliminado exitosamente. Retorna status 200 y mensaje de confirmación apropiado."
 
   - task: "DELETE endpoint for deals"
     implemented: true
