@@ -116,6 +116,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ AUTHENTICATION VERIFIED: Sistema de autenticación funcionando correctamente. Registro de usuarios exitoso, endpoints de login accesibles. El único bloqueo es la confirmación de email requerida por Supabase (configuración, no código). Separación correcta de clients anon/service implementada."
+        - working: true
+          agent: "testing"
+          comment: "✅ POST-FIXES AUTHENTICATION VERIFIED: Sistema de autenticación con backup completamente funcional. Registro exitoso (200), login exitoso (200), JWT tokens válidos generados. Fix aplicado en get_current_user() para manejar campos adicionales de profiles table. Flujo completo Register → Login → Create Contact → Create Lead funcionando al 100%. Usar emails @gmail.com para evitar restricciones de dominio."
 
   - task: "Contact creation endpoint - Error al guardar contacto"
     implemented: true
