@@ -166,6 +166,40 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# Role-based permission system
+def check_permission(required_role: str, user_role: str) -> bool:
+    """Check if user has required permission"""
+    role_hierarchy = {
+        "viewer": 1,
+        "user": 2, 
+        "manager": 3,
+        "admin": 4
+    }
+    
+    required_level = role_hierarchy.get(required_role, 0)
+    user_level = role_hierarchy.get(user_role, 0)
+    
+    return user_level >= required_level
+
+def require_role(required_role: str):
+    """Decorator to require specific role"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            # Get current_user from kwargs
+            current_user = kwargs.get('current_user')
+            if not current_user:
+                raise HTTPException(status_code=403, detail="Authentication required")
+            
+            if not check_permission(required_role, current_user.role):
+                raise HTTPException(
+                    status_code=403, 
+                    detail=f"Insufficient permissions. Required: {required_role}, Current: {current_user.role}"
+                )
+            
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
