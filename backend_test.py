@@ -18,6 +18,7 @@ class CRMAPITester:
         self.created_lead_id = None
         self.created_deal_id = None
         self.created_activity_id = None
+        self.created_ticket_id = None
         self.test_user_email = None
         self.test_user_password = "TestPass123!"  # Stronger password
         self.auth_working = False
