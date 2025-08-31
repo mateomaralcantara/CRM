@@ -102,11 +102,11 @@ class CRMAPITester:
             
         # Wait a moment for potential processing
         import time
-        time.sleep(3)
+        time.sleep(5)  # Increased wait time
         
         login_data = {
             "email": self.test_user_email,
-            "password": self.test_user_password
+            "password": "TestPassword123!"
         }
         
         print(f"   🔐 Attempting login with: {self.test_user_email}")
