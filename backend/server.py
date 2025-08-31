@@ -259,6 +259,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 @api_router.post("/auth/register", response_model=User)
 async def register(user: UserCreate):
     try:
+        # Check if user already exists in our profiles table
+        existing_user = supabase.table('profiles').select("*").eq('email', user.email).execute()
+        if existing_user.data:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
         # Create user in Supabase Auth using anon client
         auth_response = supabase_auth.auth.sign_up({
             "email": user.email,
@@ -270,12 +275,16 @@ async def register(user: UserCreate):
         
         user_id = auth_response.user.id
         
+        # Hash password for our own validation (backup)
+        hashed_password = get_password_hash(user.password)
+        
         # Create profile in profiles table using service client
         profile_data = {
             "id": user_id,
             "name": user.name,
             "email": user.email,
             "role": user.role,
+            "password": hashed_password,  # Store hashed password for backup auth
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
@@ -290,50 +299,48 @@ async def register(user: UserCreate):
             created_at=datetime.now(timezone.utc)
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
     try:
-        # Authenticate with Supabase Auth using anon client
+        # Try Supabase Auth first
         auth_response = supabase_auth.auth.sign_in_with_password({
             "email": user.email,
             "password": user.password
         })
         
-        if auth_response.user is None:
-            raise HTTPException(status_code=400, detail="Invalid credentials")
-        
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.email}, expires_delta=access_token_expires
-        )
-        return {"access_token": access_token, "token_type": "bearer"}
-        
+        if auth_response.user:
+            access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token = create_access_token(
+                data={"sub": user.email}, expires_delta=access_token_expires
+            )
+            return {"access_token": access_token, "token_type": "bearer"}
+            
     except Exception as e:
-        error_msg = str(e)
-        
-        # Handle specific Supabase auth errors
-        if "Email not confirmed" in error_msg or "Invalid login credentials" in error_msg:
-            # For development, let's bypass email confirmation by creating a custom JWT
-            # Check if user exists in our profiles table
-            try:
-                result = supabase.table('profiles').select("*").eq('email', user.email).execute()
-                if result.data:
-                    profile = result.data[0]
-                    # Create JWT token directly
+        # If Supabase auth fails (likely due to email confirmation), use backup auth
+        try:
+            result = supabase.table('profiles').select("*").eq('email', user.email).execute()
+            if result.data:
+                profile = result.data[0]
+                # Verify password using our stored hash
+                if verify_password(user.password, profile.get('password', '')):
                     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
                     access_token = create_access_token(
                         data={"sub": user.email}, expires_delta=access_token_expires
                     )
                     return {"access_token": access_token, "token_type": "bearer"}
                 else:
-                    raise HTTPException(status_code=400, detail="User not found")
-            except:
-                raise HTTPException(status_code=400, detail="Authentication failed")
-        else:
-            raise HTTPException(status_code=400, detail=f"Authentication failed: {error_msg}")
+                    raise HTTPException(status_code=400, detail="Invalid password")
+            else:
+                raise HTTPException(status_code=400, detail="User not found")
+        except HTTPException:
+            raise
+        except Exception as backup_e:
+            raise HTTPException(status_code=400, detail="Authentication failed")
 
 # Dashboard Route
 @api_router.get("/dashboard", response_model=DashboardStats)
