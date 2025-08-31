@@ -173,6 +173,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ VERIFIED: DELETE /api/activities/{id} funciona correctamente. Prueba exitosa con actividad real creada y eliminada. Retorna status 200 y mensaje de confirmación."
+        - working: true
+          agent: "testing"
+          comment: "✅ SUPABASE VERIFIED: DELETE /api/activities/{id} funciona perfectamente con Supabase PostgreSQL. Actividad creada con datos realistas (type: call, title: Llamada de seguimiento, description: Llamada para discutir propuesta comercial) y eliminada exitosamente. Retorna status 200 y mensaje de confirmación apropiado."
 
 frontend:
   - task: "Delete functionality in Contacts component"
