@@ -251,9 +251,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if not result.data:
             raise HTTPException(status_code=401, detail="User not found")
         user_data = result.data[0]
-        return User(**user_data)
+        
+        # Create User object with only the fields it expects
+        return User(
+            id=user_data.get('id'),
+            name=user_data.get('name'),
+            email=user_data.get('email'),
+            role=user_data.get('role', 'user'),
+            created_at=user_data.get('created_at')
+        )
     except Exception as e:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail=f"User authentication failed: {str(e)}")
 
 # Auth Routes
 @api_router.post("/auth/register", response_model=User)
