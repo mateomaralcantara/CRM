@@ -137,25 +137,29 @@ class CRMAPITester:
         return self.log_test("Dashboard Stats", success, error or details)
 
     def test_create_contact(self):
-        """Test creating a new contact"""
+        """Test creating a new contact - CRITICAL: Error al guardar contacto"""
         contact_data = {
-            "first_name": "Test",
-            "last_name": "Contact",
-            "email": f"test.contact.{datetime.now().strftime('%H%M%S')}@example.com",
-            "phone": "+34 123 456 789",
-            "company": "Test Company",
-            "job_title": "Test Manager",
-            "address": "Test Address 123",
-            "notes": "Test contact created by automated test"
+            "first_name": "María",
+            "last_name": "González",
+            "email": f"maria.gonzalez.{datetime.now().strftime('%H%M%S')}@empresa.es",
+            "phone": "+34 666 123 456",
+            "company": "Empresa Tecnológica SL",
+            "job_title": "Directora de Marketing",
+            "address": "Calle Mayor 123, 28001 Madrid",
+            "notes": "Cliente potencial interesado en servicios de consultoría"
         }
         
+        print(f"   📝 Creating contact: {contact_data['first_name']} {contact_data['last_name']}")
         data, error = self.make_request('POST', 'contacts', contact_data, 200)
         success = data is not None and 'id' in data and data['first_name'] == contact_data['first_name']
         
         if success:
             self.created_contact_id = data['id']
+            print(f"   ✅ Contact created successfully with ID: {self.created_contact_id}")
+        else:
+            print(f"   ❌ Contact creation failed: {error}")
         
-        return self.log_test("Create Contact", success, error or f"Contact ID: {self.created_contact_id}")
+        return self.log_test("Create Contact (Critical Test)", success, error or f"Contact ID: {self.created_contact_id}")
 
     def test_get_contacts(self):
         """Test retrieving all contacts"""
