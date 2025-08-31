@@ -481,6 +481,13 @@ async def update_lead(lead_id: str, lead_update: LeadCreate, current_user: User 
 
 @api_router.delete("/leads/{lead_id}")
 async def delete_lead(lead_id: str, current_user: User = Depends(get_current_user)):
+    # Check permissions: only managers and admins can delete
+    if not check_permission("manager", current_user.role):
+        raise HTTPException(
+            status_code=403, 
+            detail="Insufficient permissions. Only managers and admins can delete leads."
+        )
+    
     try:
         result = supabase.table('leads').delete().eq('id', lead_id).execute()
         
@@ -493,6 +500,28 @@ async def delete_lead(lead_id: str, current_user: User = Depends(get_current_use
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting lead: {str(e)}")
+
+@api_router.delete("/deals/{deal_id}")
+async def delete_deal(deal_id: str, current_user: User = Depends(get_current_user)):
+    # Check permissions: only managers and admins can delete
+    if not check_permission("manager", current_user.role):
+        raise HTTPException(
+            status_code=403, 
+            detail="Insufficient permissions. Only managers and admins can delete deals."
+        )
+    
+    try:
+        result = supabase.table('deals').delete().eq('id', deal_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Deal not found")
+            
+        return {"message": "Deal deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting deal: {str(e)}")
 
 # Deal Routes
 @api_router.post("/deals", response_model=Deal)
