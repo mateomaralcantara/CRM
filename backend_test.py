@@ -543,8 +543,8 @@ class CRMAPITester:
         # Basic tests that don't require auth
         basic_tests = [
             self.test_health_check,
-            self.test_register_user,
-            self.test_login,
+            self.test_login_with_existing_user,
+            self.test_register_and_confirm_user,
         ]
         
         # CRITICAL TESTS - Focus on user-reported issues
