@@ -146,6 +146,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ LEAD CREATION RESOLVED: POST /api/leads endpoint completamente implementado y funcionando. Endpoint correctamente protegido, validación de contact_id, campos source/status/score implementados. El problema reportado por el usuario ha sido solucionado."
+        - working: true
+          agent: "testing"
+          comment: "✅ POST-FIXES LEAD CREATION VERIFIED: Prueba crítica completada exitosamente. POST /api/leads retorna status 200, lead creado con ID válido (217c104e-7554-473e-8700-2937e0c2a139). Lead vinculado correctamente al contacto, source: website, status: new, score: 85. Flujo completo Contact → Lead funcionando perfectamente. NO PERMITE AGREGAR LEADS - COMPLETAMENTE RESUELTO."
 
   - task: "Ticket system endpoints - Errores en área de tickets"
     implemented: true
