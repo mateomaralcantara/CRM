@@ -188,8 +188,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 @api_router.post("/auth/register", response_model=User)
 async def register(user: UserCreate):
     try:
-        # Create user in Supabase Auth
-        auth_response = supabase.auth.sign_up({
+        # Create user in Supabase Auth using anon client
+        auth_response = supabase_auth.auth.sign_up({
             "email": user.email,
             "password": user.password
         })
@@ -199,7 +199,7 @@ async def register(user: UserCreate):
         
         user_id = auth_response.user.id
         
-        # Create profile in profiles table
+        # Create profile in profiles table using service client
         profile_data = {
             "id": user_id,
             "name": user.name,
@@ -225,8 +225,8 @@ async def register(user: UserCreate):
 @api_router.post("/auth/login", response_model=Token)
 async def login(user: UserLogin):
     try:
-        # Authenticate with Supabase Auth
-        auth_response = supabase.auth.sign_in_with_password({
+        # Authenticate with Supabase Auth using anon client
+        auth_response = supabase_auth.auth.sign_in_with_password({
             "email": user.email,
             "password": user.password
         })
