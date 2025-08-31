@@ -368,7 +368,7 @@ class CRMAPITester:
         """Test permission system with user role - should fail delete operations"""
         # Create a user with 'user' role
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        user_email = f"user_{timestamp}@crm-test.com"
+        user_email = f"user{timestamp}@example.com"
         user_data = {
             "name": "Regular User",
             "email": user_email,
