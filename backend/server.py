@@ -413,6 +413,13 @@ async def update_contact(contact_id: str, contact_update: ContactCreate, current
 
 @api_router.delete("/contacts/{contact_id}")
 async def delete_contact(contact_id: str, current_user: User = Depends(get_current_user)):
+    # Check permissions: only managers and admins can delete
+    if not check_permission("manager", current_user.role):
+        raise HTTPException(
+            status_code=403, 
+            detail="Insufficient permissions. Only managers and admins can delete contacts."
+        )
+    
     try:
         result = supabase.table('contacts').delete().eq('id', contact_id).execute()
         
