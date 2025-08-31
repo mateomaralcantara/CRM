@@ -59,7 +59,13 @@ class CRMAPITester:
                 except:
                     return {"message": "success"}, None
             else:
-                return None, f"Status {response.status_code}, expected {expected_status}. Response: {response.text[:200]}"
+                # Get more detailed error information
+                try:
+                    error_detail = response.json()
+                    error_msg = f"Status {response.status_code}, expected {expected_status}. Error: {error_detail}"
+                except:
+                    error_msg = f"Status {response.status_code}, expected {expected_status}. Response: {response.text[:500]}"
+                return None, error_msg
 
         except Exception as e:
             return None, f"Request failed: {str(e)}"
