@@ -76,7 +76,7 @@ class CriticalAuthTester:
         # Step 1: Register a new user
         print("\n🔐 STEP 1: User Registration")
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.test_user_email = f"testuser{timestamp}@empresa.com"
+        self.test_user_email = f"testuser{timestamp}@gmail.com"
         
         user_data = {
             "name": "Usuario Prueba",
