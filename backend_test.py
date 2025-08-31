@@ -71,9 +71,11 @@ class CRMAPITester:
 
     def test_register_user(self):
         """Test user registration"""
-        self.test_user_email = f"testuser{datetime.now().strftime('%H%M%S')}@gmail.com"
+        # Use a more realistic email with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.test_user_email = f"testuser_{timestamp}@gmail.com"
         test_user = {
-            "name": "Test User",
+            "name": "Test User CRM",
             "email": self.test_user_email,
             "password": self.test_user_password,
             "role": "user"
@@ -81,6 +83,10 @@ class CRMAPITester:
         
         data, error = self.make_request('POST', 'auth/register', test_user, 200)
         success = data is not None and 'id' in data and 'email' in data
+        
+        if success:
+            print(f"   📧 Registered user: {self.test_user_email}")
+        
         return self.log_test("User Registration", success, error or f"User ID: {data.get('id') if data else 'None'}")
 
     def test_login(self):
