@@ -311,6 +311,109 @@ class CRMAPITester:
         details = f"Found {len(data)} activities" if success else error
         return self.log_test("Get Activities", success, details)
 
+    def test_create_ticket(self):
+        """Test creating a new ticket - CRITICAL: Errores en área de tickets"""
+        ticket_data = {
+            "title": "Error en sistema de facturación",
+            "description": "El sistema no permite generar facturas para clientes nuevos. Error 500 al intentar crear factura.",
+            "category": "technical",
+            "priority": "high",
+            "contact_id": self.created_contact_id if self.created_contact_id else None,
+            "assigned_to": None
+        }
+        
+        print(f"   🎫 Creating ticket: {ticket_data['title']}")
+        data, error = self.make_request('POST', 'tickets', ticket_data, 200)
+        success = data is not None and 'id' in data and data['title'] == ticket_data['title']
+        
+        if success:
+            self.created_ticket_id = data['id']
+            print(f"   ✅ Ticket created successfully with ID: {self.created_ticket_id}")
+        else:
+            print(f"   ❌ Ticket creation failed: {error}")
+        
+        return self.log_test("Create Ticket (Critical Test)", success, error or f"Ticket ID: {self.created_ticket_id}")
+
+    def test_get_tickets(self):
+        """Test retrieving all tickets - CRITICAL: Errores en área de tickets"""
+        print(f"   📋 Retrieving all tickets")
+        data, error = self.make_request('GET', 'tickets')
+        success = data is not None and isinstance(data, list)
+        
+        if success:
+            print(f"   ✅ Found {len(data)} tickets")
+        else:
+            print(f"   ❌ Failed to retrieve tickets: {error}")
+        
+        details = f"Found {len(data)} tickets" if success else error
+        return self.log_test("Get Tickets (Critical Test)", success, details)
+
+    def test_delete_ticket_with_permissions(self):
+        """Test deleting a ticket with admin permissions - CRITICAL: Permisos para administrador"""
+        if not self.created_ticket_id:
+            return self.log_test("Delete Ticket (Admin Permission)", False, "No ticket ID available")
+        
+        print(f"   🗑️ Deleting ticket with admin permissions: {self.created_ticket_id}")
+        data, error = self.make_request('DELETE', f'tickets/{self.created_ticket_id}', expected_status=200)
+        success = data is not None and 'message' in data
+        
+        if success:
+            print(f"   ✅ Ticket deleted successfully by admin")
+        else:
+            print(f"   ❌ Ticket deletion failed: {error}")
+        
+        return self.log_test("Delete Ticket (Admin Permission)", success, error or f"Ticket deleted successfully")
+
+    def test_permission_system_user_role(self):
+        """Test permission system with user role - should fail delete operations"""
+        # Create a user with 'user' role
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        user_email = f"user_{timestamp}@crm-test.com"
+        user_data = {
+            "name": "Regular User",
+            "email": user_email,
+            "password": self.test_user_password,
+            "role": "user"
+        }
+        
+        # Register user
+        reg_data, reg_error = self.make_request('POST', 'auth/register', user_data, 200)
+        if not reg_data:
+            return self.log_test("Permission Test (User Role)", False, f"Failed to register user: {reg_error}")
+        
+        # Wait for processing
+        import time
+        time.sleep(3)
+        
+        # Login as user
+        login_data = {"email": user_email, "password": self.test_user_password}
+        login_response, login_error = self.make_request('POST', 'auth/login', login_data, 200)
+        
+        if not login_response or 'access_token' not in login_response:
+            return self.log_test("Permission Test (User Role)", False, f"User login failed: {login_error}")
+        
+        # Save current admin token
+        admin_token = self.token
+        
+        # Switch to user token
+        self.token = login_response['access_token']
+        self.headers['Authorization'] = f'Bearer {self.token}'
+        
+        # Try to delete contact (should fail with 403)
+        if self.created_contact_id:
+            data, error = self.make_request('DELETE', f'contacts/{self.created_contact_id}', expected_status=403)
+            permission_test_success = error is not None and "403" in str(error)
+        else:
+            permission_test_success = False
+            error = "No contact to test permissions"
+        
+        # Restore admin token
+        self.token = admin_token
+        self.headers['Authorization'] = f'Bearer {self.token}'
+        
+        return self.log_test("Permission Test (User Role)", permission_test_success, 
+                           f"User correctly denied delete permission: {error}" if permission_test_success else f"Permission test failed: {error}")
+
     def test_search_functionality(self):
         """Test search functionality"""
         data, error = self.make_request('GET', 'search?q=Test&type=all')
