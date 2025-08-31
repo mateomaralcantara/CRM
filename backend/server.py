@@ -149,6 +149,43 @@ class DashboardStats(BaseModel):
     conversion_rate: float
     recent_activities: List[Activity]
 
+# Ticket Models
+class TicketCreate(BaseModel):
+    title: str
+    description: str
+    category: str = "technical"
+    priority: str = "medium"
+    contact_id: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+class Ticket(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    category: str = "technical"
+    priority: str = "medium"
+    status: str = "open"
+    contact_id: Optional[str] = None
+    assigned_to: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    satisfaction_rating: Optional[int] = None
+    tags: Optional[List[str]] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class TicketCommentCreate(BaseModel):
+    ticket_id: str
+    content: str
+    type: str = "internal"
+
+class TicketComment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    ticket_id: str
+    author_id: str
+    content: str
+    type: str = "internal"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Auth Functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
