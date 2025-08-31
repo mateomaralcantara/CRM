@@ -679,6 +679,120 @@ async def search(q: str, type: str = "all", current_user: User = Depends(get_cur
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching: {str(e)}")
 
+# Ticket Routes
+@api_router.post("/tickets", response_model=Ticket)
+async def create_ticket(ticket: TicketCreate, current_user: User = Depends(get_current_user)):
+    try:
+        ticket_data = ticket.dict()
+        ticket_data['id'] = str(uuid.uuid4())
+        ticket_data['created_by'] = current_user.id
+        ticket_data['created_at'] = datetime.now(timezone.utc).isoformat()
+        ticket_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('tickets').insert(ticket_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create ticket")
+            
+        return Ticket(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating ticket: {str(e)}")
+
+@api_router.get("/tickets", response_model=List[Ticket])
+async def get_tickets(current_user: User = Depends(get_current_user)):
+    try:
+        result = supabase.table('tickets').select("*").order('created_at', desc=True).execute()
+        return [Ticket(**ticket) for ticket in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching tickets: {str(e)}")
+
+@api_router.get("/tickets/{ticket_id}", response_model=Ticket)
+async def get_ticket(ticket_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        result = supabase.table('tickets').select("*").eq('id', ticket_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+            
+        return Ticket(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching ticket: {str(e)}")
+
+@api_router.put("/tickets/{ticket_id}", response_model=Ticket)
+async def update_ticket(ticket_id: str, ticket_update: TicketCreate, current_user: User = Depends(get_current_user)):
+    try:
+        update_data = ticket_update.dict()
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        result = supabase.table('tickets').update(update_data).eq('id', ticket_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+            
+        return Ticket(**result.data[0])
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating ticket: {str(e)}")
+
+@api_router.delete("/tickets/{ticket_id}")
+async def delete_ticket(ticket_id: str, current_user: User = Depends(get_current_user)):
+    # Check permissions: only managers and admins can delete tickets
+    if not check_permission("manager", current_user.role):
+        raise HTTPException(
+            status_code=403, 
+            detail="Insufficient permissions. Only managers and admins can delete tickets."
+        )
+    
+    try:
+        result = supabase.table('tickets').delete().eq('id', ticket_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Ticket not found")
+            
+        return {"message": "Ticket deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting ticket: {str(e)}")
+
+# Ticket Comments Routes
+@api_router.post("/tickets/{ticket_id}/comments", response_model=TicketComment)
+async def create_ticket_comment(ticket_id: str, comment: TicketCommentCreate, current_user: User = Depends(get_current_user)):
+    try:
+        comment_data = {
+            "id": str(uuid.uuid4()),
+            "ticket_id": ticket_id,
+            "author_id": current_user.id,
+            "content": comment.content,
+            "type": comment.type,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        result = supabase.table('ticket_comments').insert(comment_data).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Failed to create comment")
+            
+        return TicketComment(**result.data[0])
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error creating comment: {str(e)}")
+
+@api_router.get("/tickets/{ticket_id}/comments", response_model=List[TicketComment])
+async def get_ticket_comments(ticket_id: str, current_user: User = Depends(get_current_user)):
+    try:
+        result = supabase.table('ticket_comments').select("*").eq('ticket_id', ticket_id).order('created_at', desc=True).execute()
+        return [TicketComment(**comment) for comment in result.data] if result.data else []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching comments: {str(e)}")
+
 # Health check
 @api_router.get("/health")
 async def health_check():
