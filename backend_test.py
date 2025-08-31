@@ -72,23 +72,26 @@ class CRMAPITester:
 
     def test_register_user(self):
         """Test user registration - CRITICAL: Error al guardar contacto issue"""
-        # Use a more realistic email with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.test_user_email = f"admin{timestamp}@example.com"
+        # Use a simple, valid email format
+        timestamp = datetime.now().strftime('%H%M%S')
+        self.test_user_email = f"test{timestamp}@gmail.com"
         test_user = {
-            "name": "Admin Test User",
+            "name": "Test Admin",
             "email": self.test_user_email,
-            "password": self.test_user_password,
+            "password": "TestPassword123!",  # Strong password
             "role": "admin"  # Use admin role for permission testing
         }
         
+        print(f"   📧 Attempting to register: {self.test_user_email}")
         data, error = self.make_request('POST', 'auth/register', test_user, 200)
         success = data is not None and 'id' in data and 'email' in data
         
         if success:
-            print(f"   📧 Registered admin user: {self.test_user_email}")
+            print(f"   ✅ Registered admin user: {self.test_user_email}")
         else:
             print(f"   ❌ Registration failed: {error}")
+            # Try to get more detailed error info
+            print(f"   📋 Request data: {test_user}")
         
         return self.log_test("User Registration (Admin)", success, error or f"User ID: {data.get('id') if data else 'None'}")
 
