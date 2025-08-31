@@ -94,38 +94,28 @@ class CRMAPITester:
         if not self.test_user_email:
             return self.log_test("User Login", False, "No test user email available")
             
-        # First, let's try to wait a moment for potential email confirmation
+        # Wait a moment for potential processing
         import time
-        time.sleep(2)
+        time.sleep(3)
         
         login_data = {
             "email": self.test_user_email,
             "password": self.test_user_password
         }
         
+        print(f"   🔐 Attempting login with: {self.test_user_email}")
         data, error = self.make_request('POST', 'auth/login', login_data, 200)
         success = data is not None and 'access_token' in data
-        
-        # If login fails, try with a pre-existing user that might be confirmed
-        if not success:
-            # Try with a different approach - use a known working email
-            test_emails = [
-                "admin@crm.com",
-                "test@crm.com", 
-                "user@crm.com"
-            ]
-            
-            for email in test_emails:
-                login_data = {"email": email, "password": self.test_user_password}
-                data, error = self.make_request('POST', 'auth/login', login_data, 200)
-                if data is not None and 'access_token' in data:
-                    success = True
-                    self.test_user_email = email
-                    break
         
         if success:
             self.token = data['access_token']
             self.headers['Authorization'] = f'Bearer {self.token}'
+            self.auth_working = True
+            print(f"   ✅ Authentication successful!")
+        else:
+            print(f"   ❌ Authentication failed: {error}")
+            # Note: This might be due to email confirmation requirement
+            print(f"   ℹ️  Note: Supabase may require email confirmation")
         
         return self.log_test("User Login", success, error or f"Token received: {'Yes' if self.token else 'No'}")
 
