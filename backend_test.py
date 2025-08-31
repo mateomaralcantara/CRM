@@ -70,7 +70,7 @@ class CRMAPITester:
 
     def test_register_user(self):
         """Test user registration"""
-        self.test_user_email = f"test_{datetime.now().strftime('%H%M%S')}@crm.com"
+        self.test_user_email = f"testuser{datetime.now().strftime('%H%M%S')}@gmail.com"
         test_user = {
             "name": "Test User",
             "email": self.test_user_email,
