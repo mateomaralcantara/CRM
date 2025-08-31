@@ -201,25 +201,29 @@ class CRMAPITester:
         return self.log_test("Update Contact", success, error or f"Updated name: {data.get('first_name', 'Unknown') if data else 'None'}")
 
     def test_create_lead(self):
-        """Test creating a new lead"""
+        """Test creating a new lead - CRITICAL: No permite agregar leads"""
         if not self.created_contact_id:
-            return self.log_test("Create Lead", False, "No contact ID available")
+            return self.log_test("Create Lead (Critical Test)", False, "No contact ID available")
         
         lead_data = {
             "contact_id": self.created_contact_id,
             "source": "website",
             "status": "new",
-            "score": 75,
-            "notes": "Test lead created by automated test"
+            "score": 85,
+            "notes": "Lead generado desde formulario web - interés en servicios premium"
         }
         
+        print(f"   📈 Creating lead for contact: {self.created_contact_id}")
         data, error = self.make_request('POST', 'leads', lead_data, 200)
         success = data is not None and 'id' in data and data['contact_id'] == self.created_contact_id
         
         if success:
             self.created_lead_id = data['id']
+            print(f"   ✅ Lead created successfully with ID: {self.created_lead_id}")
+        else:
+            print(f"   ❌ Lead creation failed: {error}")
         
-        return self.log_test("Create Lead", success, error or f"Lead ID: {self.created_lead_id}")
+        return self.log_test("Create Lead (Critical Test)", success, error or f"Lead ID: {self.created_lead_id}")
 
     def test_get_leads(self):
         """Test retrieving all leads"""
