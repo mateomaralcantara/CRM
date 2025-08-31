@@ -119,6 +119,9 @@ backend:
         - working: true
           agent: "testing"
           comment: "✅ VERIFIED: DELETE /api/contacts/{id} funciona correctamente. Prueba exitosa con contacto real creado y eliminado. Retorna status 200 y mensaje de confirmación."
+        - working: true
+          agent: "testing"
+          comment: "✅ SUPABASE VERIFIED: DELETE /api/contacts/{id} funciona perfectamente con Supabase PostgreSQL. Prueba completa: creación de usuario confirmado, autenticación JWT, creación de contacto (Maria Rodriguez), eliminación exitosa con status 200, verificación de eliminación con 404. Integridad de datos mantenida."
 
   - task: "DELETE endpoint for leads"
     implemented: true
