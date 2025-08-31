@@ -19,7 +19,8 @@ class CRMAPITester:
         self.created_deal_id = None
         self.created_activity_id = None
         self.test_user_email = None
-        self.test_user_password = "testpass123"
+        self.test_user_password = "TestPass123!"  # Stronger password
+        self.auth_working = False
 
     def log_test(self, name, success, details=""):
         """Log test results"""
