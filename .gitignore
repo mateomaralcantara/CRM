@@ -5,3 +5,8 @@ node_modules/
 out/
 dist/
 coverage/
+.env
+.vercel
+.next
+node_modules
+
