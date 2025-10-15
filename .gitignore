@@ -1,12 +1,4 @@
-node_modules/
-.next/
-.env
-.env.*
-out/
-dist/
-coverage/
 .env
 .vercel
 .next
 node_modules
-
