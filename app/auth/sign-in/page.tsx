@@ -1,10 +1,9 @@
 // app/auth/sign-in/page.tsx
+"use client";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-// (opcional) Forzar runtime Node para evitar warnings del Edge:
 export const runtime = "nodejs";
-
-"use client";
 
 import { Suspense, useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,10 +33,7 @@ function SignInInner() {
         : await sb.auth.signUp({ email, password });
 
     setLoading(false);
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
+    if (error) { setMsg(error.message); return; }
     router.push(next);
   }
 
@@ -50,7 +46,7 @@ function SignInInner() {
   }
 
   const emailInvalid = msg?.toLowerCase().includes("email");
-  const passInvalid = msg?.toLowerCase().includes("password");
+  const passInvalid  = msg?.toLowerCase().includes("password");
 
   return (
     <div className="container" style={{ maxInlineSize: 420, marginBlockStart: 64 }}>
@@ -63,13 +59,9 @@ function SignInInner() {
           <div>
             <label htmlFor="email">Email</label>
             <input
-              id="email"
-              type="email"
-              required
-              value={email}
+              id="email" type="email" required value={email}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
-              placeholder="tucorreo@dominio.com"
-              autoComplete="email"
+              placeholder="tucorreo@dominio.com" autoComplete="email"
               aria-invalid={!!emailInvalid}
             />
           </div>
@@ -78,42 +70,28 @@ function SignInInner() {
             <label htmlFor="password">Clave</label>
             <div className="flex" style={{ gap: 8 }}>
               <input
-                id="password"
-                type={show ? "text" : "password"}
-                required
-                value={password}
+                id="password" type={show ? "text" : "password"} required value={password}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                 placeholder="********"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                aria-invalid={!!passInvalid}
-                style={{ inlineSize: "100%" }}
+                aria-invalid={!!passInvalid} style={{ inlineSize: "100%" }}
               />
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => setShow((v) => !v)}
-                aria-label={show ? "Ocultar clave" : "Mostrar clave"}
-              >
+              <button type="button" className="btn-ghost"
+                onClick={() => setShow(v => !v)}
+                aria-label={show ? "Ocultar clave" : "Mostrar clave"}>
                 {show ? "🙈" : "👁️"}
               </button>
             </div>
           </div>
 
-          {msg && (
-            <div className="empty" style={{ textAlign: "start", color: "#fca5a5" }}>
-              {msg}
-            </div>
-          )}
+          {msg && <div className="empty" style={{ textAlign: "start", color: "#fca5a5" }}>{msg}</div>}
 
           <div className="flex" style={{ justifyContent: "space-between" }}>
             <button disabled={loading}>
               {loading ? "Procesando..." : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </button>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            >
+            <button type="button" className="btn-ghost"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
               {mode === "signin" ? "Crear cuenta" : "Ya tengo cuenta"}
             </button>
           </div>
@@ -132,15 +110,11 @@ function SignInInner() {
 
 export default function SignInPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="container" style={{ maxInlineSize: 420, marginBlockStart: 64 }}>
-          <div className="card" style={{ padding: 20 }}>
-            <p>Cargando…</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={
+      <div className="container" style={{ maxInlineSize: 420, marginBlockStart: 64 }}>
+        <div className="card" style={{ padding: 20 }}><p>Cargando…</p></div>
+      </div>
+    }>
       <SignInInner />
     </Suspense>
   );
