@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { supabase } from "@/lib/supabase";
 
-// Tipos mínimos
+// Tipos locales (solo para ayuda en el render)
 type Objective = {
   id: string;
   area: string;
@@ -39,46 +39,49 @@ export default async function Home() {
   const { start, end, startDate, endDate } = isoMonthRange(now);
   const today = isoDayRange(now);
 
-  // Tareas creadas hoy
-  const { count: tasksToday } = await supabase
-    .from("tasks")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", today.start)
-    .lte("created_at", today.end);
+  // Haz todo en paralelo
+  const [tasksRes, objectivesRes, txsRes, contactsRes, eventsRes] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", today.start)
+      .lte("created_at", today.end),
+    supabase
+      .from("objectives")
+      .select("*")
+      .lte("start_date", endDate)
+      .gte("end_date", startDate)
+      .order("end_date", { ascending: true }),
+    supabase
+      .from("transactions")
+      .select("kind,amount,date")
+      .gte("date", start)
+      .lte("date", end),
+    supabase
+      .from("contacts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("events")
+      .select("*")
+      .gte("start", new Date().toISOString())
+      .lte("start", new Date(Date.now() + 7 * 86400000).toISOString())
+      .order("start", { ascending: true })
+      .limit(5),
+  ]);
 
-  // Metas en el mes
-  const {
-    data: objectivesRaw,
-    error: objectivesErr,
-  } = await supabase
-    .from<Objective>("objectives")
-    .select("*")
-    .lte("start_date", endDate)
-    .gte("end_date", startDate)
-    .order("end_date", { ascending: true });
+  const tasksToday = tasksRes.count ?? 0;
 
-  const objectives: Objective[] = objectivesRaw ?? [];
-  if (objectivesErr) {
-    // No crashea la página, solo muestra 0 metas
-    console.warn("Objectives error:", objectivesErr.message);
-  }
-
+  const objectives = (objectivesRes.data ?? []) as Objective[];
+  if (objectivesRes.error) console.warn("Objectives error:", objectivesRes.error.message);
   const avgProgress =
     objectives.length > 0
-      ? Math.round(
-          objectives.reduce((s, o) => s + Number(o.progress ?? 0), 0) / objectives.length
-        )
+      ? Math.round(objectives.reduce((s, o) => s + Number(o.progress ?? 0), 0) / objectives.length)
       : 0;
 
-  // Finanzas del mes
-  const { data: txsRaw, error: txErr } = await supabase
-    .from<Tx>("transactions")
-    .select("kind,amount,date")
-    .gte("date", start)
-    .lte("date", end);
-  const txs: Tx[] = txsRaw ?? [];
-  if (txErr) console.warn("Transactions error:", txErr.message);
-
+  const txs = (txsRes.data ?? []) as Tx[];
+  if (txsRes.error) console.warn("Transactions error:", txsRes.error.message);
   const totals = txs.reduce(
     (acc, t) => {
       const amt = Number(t.amount || 0);
@@ -90,33 +93,18 @@ export default async function Home() {
   );
   const neto = totals.ingresos - totals.egresos;
 
-  // Contactos recientes
-  const { data: contactsRaw, error: cErr } = await supabase
-    .from<Contact>("contacts")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(5);
-  const contacts: Contact[] = contactsRaw ?? [];
-  if (cErr) console.warn("Contacts error:", cErr?.message);
+  const contacts = (contactsRes.data ?? []) as Contact[];
+  if (contactsRes.error) console.warn("Contacts error:", contactsRes.error.message);
 
-  // Próximos eventos (7 días)
-  const next7 = new Date(Date.now() + 7 * 86400000).toISOString();
-  const { data: eventsRaw, error: eErr } = await supabase
-    .from<EventRow>("events")
-    .select("*")
-    .gte("start", new Date().toISOString())
-    .lte("start", next7)
-    .order("start", { ascending: true })
-    .limit(5);
-  const events: EventRow[] = eventsRaw ?? [];
-  if (eErr) console.warn("Events error:", eErr?.message);
+  const events = (eventsRes.data ?? []) as EventRow[];
+  if (eventsRes.error) console.warn("Events error:", eventsRes.error.message);
 
   return (
     <div className="grid" style={{ display: "grid", gap: 16 }}>
       <div className="card">
         <h2 style={{ marginBlockStart: 0 }}>Hoy</h2>
         <p>
-          <b>Tareas creadas hoy:</b> {tasksToday ?? 0}
+          <b>Tareas creadas hoy:</b> {tasksToday}
         </p>
       </div>
 
@@ -127,7 +115,7 @@ export default async function Home() {
         </p>
         <div
           style={{
-            background: "#eee",
+            background: "#1f2937",
             borderRadius: 8,
             blockSize: 10,
             overflow: "hidden",
@@ -138,6 +126,7 @@ export default async function Home() {
               inlineSize: `${avgProgress}%`,
               blockSize: "100%",
               background: "#22c55e",
+              transition: "inline-size .3s ease",
             }}
           />
         </div>
@@ -161,7 +150,9 @@ export default async function Home() {
         <h2 style={{ marginBlockStart: 0 }}>Contactos recientes</h2>
         <ul>
           {contacts.map((c) => (
-            <li key={c.id}>{c.name} {c.email ? `— ${c.email}` : ""}</li>
+            <li key={c.id}>
+              {c.name} {c.email ? `— ${c.email}` : ""}
+            </li>
           ))}
           {contacts.length === 0 && <li>Sin contactos aún</li>}
         </ul>
@@ -171,7 +162,9 @@ export default async function Home() {
         <h2 style={{ marginBlockStart: 0 }}>Próximos 7 días</h2>
         <ul>
           {events.map((e) => (
-            <li key={e.id}>{e.title} — {new Date(e.start).toLocaleString("es-DO")}</li>
+            <li key={e.id}>
+              {e.title} — {new Date(e.start).toLocaleString("es-DO")}
+            </li>
           ))}
           {events.length === 0 && <li>Sin eventos próximos</li>}
         </ul>
