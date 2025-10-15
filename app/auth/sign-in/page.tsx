@@ -1,71 +1,56 @@
+// app/auth/sign-in/page.tsx
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+// (opcional) Forzar runtime Node para evitar warnings del Edge:
+export const runtime = "nodejs";
+
 "use client";
-import * as React from "react";
-import { useMemo, useState, useCallback } from "react";
+
+import { Suspense, useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-export default function SignInPage() {
+function SignInInner() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
+  const [show, setShow] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
   const sp = useSearchParams();
+  const next = sp.get("next") ?? "/";
 
-  const next = useMemo(() => sp.get("next") ?? "/", [sp]);
-  const isEmailValid = /\S+@\S+\.\S+/.test(email);
-  const isPwdValid = password.length >= 6;
-  const canSubmit = !loading && isEmailValid && isPwdValid;
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setMsg(null);
+    const sb = supabaseBrowser();
 
-  const onSubmit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!canSubmit) return;
+    const { error } =
+      mode === "signin"
+        ? await sb.auth.signInWithPassword({ email, password })
+        : await sb.auth.signUp({ email, password });
 
-      setLoading(true);
-      setMsg(null);
-      const sb = supabaseBrowser();
-
-      let error: { message: string } | null = null;
-
-      if (mode === "signin") {
-        const { error: err } = await sb.auth.signInWithPassword({ email, password });
-        error = err;
-      } else {
-        const { data, error: err } = await sb.auth.signUp({ email, password });
-        error = err;
-        if (!err && !data.session) {
-          setLoading(false);
-          setMsg("Te enviamos un email de verificación. Revisa tu bandeja 📬");
-          return;
-        }
-      }
-
-      setLoading(false);
-
-      if (error) {
-        setMsg(error.message);
-        return;
-      }
-      router.push(next);
-    },
-    [canSubmit, email, password, mode, next, router]
-  );
-
-  const resetPass = useCallback(async () => {
-    if (!isEmailValid) {
-      setMsg("Pon un email válido para enviar el reset 🔐");
+    setLoading(false);
+    if (error) {
+      setMsg(error.message);
       return;
     }
+    router.push(next);
+  }
+
+  async function resetPass() {
     const sb = supabaseBrowser();
     const { error } = await sb.auth.resetPasswordForEmail(email, {
       redirectTo: window.location.origin + "/auth/update-password",
     });
-    setMsg(error ? error.message : "Listo. Revisa tu email para resetear la clave.");
-  }, [email, isEmailValid]);
+    setMsg(error ? error.message : "Revisa tu email para resetear la clave.");
+  }
+
+  const emailInvalid = msg?.toLowerCase().includes("email");
+  const passInvalid = msg?.toLowerCase().includes("password");
 
   return (
     <div className="container" style={{ maxInlineSize: 420, marginBlockStart: 64 }}>
@@ -74,7 +59,7 @@ export default function SignInPage() {
           {mode === "signin" ? "Inicia sesión" : "Crea tu cuenta"}
         </h2>
 
-        <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }} noValidate>
+        <form onSubmit={onSubmit} className="grid" style={{ gap: 12 }}>
           <div>
             <label htmlFor="email">Email</label>
             <input
@@ -82,39 +67,36 @@ export default function SignInPage() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.currentTarget.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
               placeholder="tucorreo@dominio.com"
               autoComplete="email"
-              aria-invalid={email.length > 0 ? !isEmailValid : undefined}
+              aria-invalid={!!emailInvalid}
             />
           </div>
 
           <div>
             <label htmlFor="password">Clave</label>
-            <div className="flex" style={{ alignItems: "stretch" }}>
+            <div className="flex" style={{ gap: 8 }}>
               <input
                 id="password"
-                type={showPass ? "text" : "password"}
+                type={show ? "text" : "password"}
                 required
                 value={password}
-                onChange={(e) => setPassword(e.currentTarget.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                 placeholder="********"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                aria-invalid={password.length > 0 ? !isPwdValid : undefined}
+                aria-invalid={!!passInvalid}
+                style={{ inlineSize: "100%" }}
               />
               <button
                 type="button"
                 className="btn-ghost"
-                onClick={() => setShowPass((s) => !s)}
-                aria-pressed={showPass}
-                title={showPass ? "Ocultar clave" : "Mostrar clave"}
+                onClick={() => setShow((v) => !v)}
+                aria-label={show ? "Ocultar clave" : "Mostrar clave"}
               >
-                {showPass ? "Ocultar" : "Mostrar"}
+                {show ? "🙈" : "👁️"}
               </button>
             </div>
-            {!isPwdValid && password.length > 0 && (
-              <small>La clave debe tener al menos 6 caracteres.</small>
-            )}
           </div>
 
           {msg && (
@@ -124,16 +106,13 @@ export default function SignInPage() {
           )}
 
           <div className="flex" style={{ justifyContent: "space-between" }}>
-            <button disabled={!canSubmit}>
+            <button disabled={loading}>
               {loading ? "Procesando..." : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </button>
             <button
               type="button"
               className="btn-ghost"
-              onClick={() => {
-                setMode((m) => (m === "signin" ? "signup" : "signin"));
-                setMsg(null);
-              }}
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             >
               {mode === "signin" ? "Crear cuenta" : "Ya tengo cuenta"}
             </button>
@@ -142,17 +121,27 @@ export default function SignInPage() {
 
         <div className="flex" style={{ justifyContent: "space-between", marginBlockStart: 12 }}>
           <small>¿Olvidaste la clave?</small>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={resetPass}
-            disabled={!isEmailValid || loading}
-            title={!isEmailValid ? "Ingresa un email válido" : "Enviar reset"}
-          >
+          <button type="button" className="btn-secondary" onClick={resetPass}>
             Resetear clave
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container" style={{ maxInlineSize: 420, marginBlockStart: 64 }}>
+          <div className="card" style={{ padding: 20 }}>
+            <p>Cargando…</p>
+          </div>
+        </div>
+      }
+    >
+      <SignInInner />
+    </Suspense>
   );
 }
