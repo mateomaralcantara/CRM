@@ -155,3 +155,16 @@
   /* Anim */
   @keyframes cardIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   
+  /* En globals.css */
+.nav-link {
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #cbd5e1;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link[data-active="true"] {
+  color: var(--text);
+  background: color-mix(in oklab, var(--brand) 12%, transparent);
+  border: 1px solid var(--line);
+}

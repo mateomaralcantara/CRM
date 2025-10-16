@@ -1,23 +1,27 @@
 // app/admin/page.tsx
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 
-// ---------- Config del CRUD (una sola vez aquí) ----------
+// ---------- Tipos ----------
 type Field =
   | { name: string; label: string; kind: "text" | "number" | "date" | "datetime" }
   | { name: string; label: string; kind: "select"; options: string[] }
   | { name: string; label: string; kind: "uuid" }
-  | { name: string; label: string; kind: "array:text" };
+  | { name: string; label: string; kind: "array:text" }
+  | { name: string; label: string; kind: "array:number" };
 
 type TableCfg = {
-  name: string;        // nombre exacto de la tabla en Supabase
-  label: string;       // etiqueta en UI
-  pk?: string;         // primary key (default: "id")
-  orderBy?: string;    // para ordenar (default: created_at desc)
-  fields: Field[];     // columnas editables/creables
+  name: string;
+  label: string;
+  pk?: string;
+  orderBy?: string;
+  fields: Field[];
 };
 
-// Lista canónica de tablas (para narrow estricto)
+// ---------- Menú ----------
 const TABLE_KEYS = [
   "projects",
   "objectives",
@@ -29,10 +33,11 @@ const TABLE_KEYS = [
   "events",
   "debts",
   "debt_payments",
+  "poa", // 👈 un solo POA
 ] as const;
 type TableKey = typeof TABLE_KEYS[number];
 
-// Config por tabla (tipado contra TableKey)
+// ---------- Config por tabla ----------
 const TABLES: Record<TableKey, TableCfg> = {
   projects: {
     name: "projects",
@@ -120,7 +125,7 @@ const TABLES: Record<TableKey, TableCfg> = {
     fields: [
       { name: "title", label: "Título", kind: "text" },
       { name: "start", label: "Inicio", kind: "datetime" },
-      { name: "end", label: "Fin", kind: "datetime" }, // columna "end" existe en tu esquema
+      { name: "end", label: "Fin", kind: "datetime" },
       { name: "location", label: "Ubicación", kind: "text" },
       { name: "note", label: "Nota", kind: "text" },
     ],
@@ -146,9 +151,31 @@ const TABLES: Record<TableKey, TableCfg> = {
       { name: "note", label: "Nota", kind: "text" },
     ],
   },
+
+  // --------- POA único (tabla poa_items) ----------
+  poa: {
+    name: "poa_items",
+    label: "POA",
+    fields: [
+      { name: "year", label: "Año", kind: "number" },
+      { name: "area", label: "Área", kind: "text" },
+      { name: "objective", label: "Objetivo", kind: "text" },
+      { name: "activity", label: "Actividad", kind: "text" },
+      { name: "indicator", label: "Indicador", kind: "text" },
+      { name: "unit", label: "Unidad", kind: "text" },
+      { name: "baseline", label: "Línea base", kind: "number" },
+      { name: "target", label: "Meta anual", kind: "number" },
+      { name: "responsible", label: "Responsable", kind: "text" },
+      { name: "budget", label: "Presupuesto", kind: "number" },
+      { name: "planned_months", label: "Meses plan (1-12, coma)", kind: "array:number" },
+      { name: "progress", label: "Avance %", kind: "number" },
+      { name: "spent", label: "Gastado", kind: "number" },
+      { name: "status", label: "Estado", kind: "select", options: ["Plan","En curso","Riesgo","Hecho"] },
+    ],
+  },
 };
 
-// Helpers
+// ---------- Helpers ----------
 function toIsoMaybe(v: string | null | undefined) {
   if (!v) return null;
   const d = new Date(v);
@@ -159,10 +186,12 @@ function parseField(field: Field, raw: FormDataEntryValue | null): any {
   if (s === "") return null;
   switch (field.kind) {
     case "number": return Number(s);
-    case "date": return s; // YYYY-MM-DD ok para DATE
+    case "date": return s;
     case "datetime": return toIsoMaybe(s);
     case "array:text": return s.split(",").map(t => t.trim()).filter(Boolean);
-    default: return s; // text, select, uuid
+    case "array:number":
+      return s.split(",").map(t => Number(t.trim())).filter(n => Number.isFinite(n));
+    default: return s;
   }
 }
 function isTableKey(x: unknown): x is TableKey {
@@ -216,6 +245,49 @@ async function deleteRow(form: FormData) {
   revalidatePath(pathFor(key));
 }
 
+// ---------- Server Action específica POA: “Actualizado rápido” ----------
+async function poaQuickUpdate(form: FormData) {
+  "use server";
+  const id = (form.get("id") || "").toString();
+  const progress = (form.get("progress") || "").toString();
+  const spentDelta = (form.get("spent_delta") || "").toString();
+  const status = (form.get("status") || "").toString();
+  const note = (form.get("note") || "").toString();
+
+  if (!id) return;
+
+  // Leer spent actual
+  const { data: cur, error: rErr } = await supabase
+    .from("poa_items")
+    .select("spent")
+    .eq("id", id)
+    .single();
+  if (rErr) throw new Error("POA read: " + rErr.message);
+
+  const patch: Record<string, any> = {};
+  if (progress !== "") patch.progress = Math.max(0, Math.min(100, Number(progress)));
+  if (status) patch.status = status;
+  const delta = spentDelta !== "" ? Math.max(0, Number(spentDelta)) : 0;
+  if (delta > 0) patch.spent = Number(cur?.spent || 0) + delta;
+
+  if (Object.keys(patch).length) {
+    const { error: uErr } = await supabase.from("poa_items").update(patch).eq("id", id);
+    if (uErr) throw new Error("POA update: " + uErr.message);
+  }
+
+  // Bitácora opcional
+  if (note || delta > 0 || progress !== "") {
+    await supabase.from("poa_updates").insert({
+      item_id: id,
+      progress: progress !== "" ? Number(progress) : undefined,
+      spent_delta: delta > 0 ? delta : undefined,
+      note: note || null,
+    });
+  }
+
+  revalidatePath(pathFor("poa"));
+}
+
 // ---------- UI ----------
 export default async function AdminPage({ searchParams }: { searchParams?: { t?: string } }) {
   const rawKey = searchParams?.t ?? "tasks";
@@ -223,8 +295,11 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
   const cfg = TABLES[tableKey];
 
   const orderBy = cfg.orderBy ?? "created_at";
-  const { data: rowsRaw, error } =
-    await supabase.from(cfg.name).select("*").order(orderBy, { ascending: false }).limit(50);
+  const { data: rowsRaw, error } = await supabase
+    .from(cfg.name)
+    .select("*")
+    .order(orderBy, { ascending: false })
+    .limit(50);
 
   const rows = rowsRaw ?? [];
 
@@ -267,7 +342,9 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
               {f.kind === "select" ? (
                 <select name={f.name}>
                   <option value=""></option>
-                  {f.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  {f.options.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
                 </select>
               ) : f.kind === "datetime" ? (
                 <input name={f.name} type="datetime-local" />
@@ -275,6 +352,8 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
                 <input name={f.name} type="date" />
               ) : f.kind === "number" ? (
                 <input name={f.name} type="number" step="0.01" />
+              ) : f.kind === "array:text" || f.kind === "array:number" ? (
+                <input name={f.name} placeholder={f.kind === "array:number" ? "1,2,3,..." : "tag1, tag2"} />
               ) : (
                 <input name={f.name} placeholder={f.kind === "uuid" ? "uuid" : ""} />
               )}
@@ -290,7 +369,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
           <thead>
             <tr>
               <th>ID</th>
-              {cfg.fields.map(f => <th key={`head-${f.name}`}>{f.label}</th>)}
+              {cfg.fields.map((f) => <th key={`head-${f.name}`}>{f.label}</th>)}
               <th className="right">Acciones</th>
             </tr>
           </thead>
@@ -302,7 +381,7 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
                 </td>
                 {cfg.fields.map((f) => {
                   const v = r[f.name];
-                  if (f.kind === "array:text") {
+                  if (f.kind === "array:text" || f.kind === "array:number") {
                     return <td key={`cell-${r.id}-${f.name}`}>{Array.isArray(v) ? v.join(", ") : ""}</td>;
                   }
                   if (f.kind === "datetime" && v) {
@@ -320,8 +399,12 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
                   <details>
                     <summary className="btn btn-ghost">Editar / Borrar</summary>
                     <div style={{ marginBlockStart: 8 }}>
-                      {/* Editar */}
-                      <form action={updateRow} className="grid" style={{ gridTemplateColumns: "repeat(3,1fr)", gap: 8, alignItems: "end" }}>
+                      {/* Editar genérico */}
+                      <form
+                        action={updateRow}
+                        className="grid"
+                        style={{ gridTemplateColumns: "repeat(3,1fr)", gap: 8, alignItems: "end" }}
+                      >
                         <input type="hidden" name="tableKey" value={tableKey} />
                         <input type="hidden" name="id" value={r[cfg.pk ?? "id"]} />
                         {cfg.fields.map((f) => {
@@ -333,24 +416,28 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
                               {f.kind === "select" ? (
                                 <select name={inputName} defaultValue={String(val || "")}>
                                   <option value=""></option>
-                                  {f.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                  {f.options.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
                                 </select>
                               ) : f.kind === "datetime" ? (
                                 <input
                                   name={inputName}
                                   type="datetime-local"
-                                  defaultValue={val ? new Date(val).toISOString().slice(0,16) : ""}
+                                  defaultValue={val ? new Date(val).toISOString().slice(0, 16) : ""}
                                 />
                               ) : f.kind === "date" ? (
                                 <input
                                   name={inputName}
                                   type="date"
-                                  defaultValue={val ? new Date(val).toISOString().slice(0,10) : ""}
+                                  defaultValue={val ? new Date(val).toISOString().slice(0, 10) : ""}
                                 />
                               ) : f.kind === "number" ? (
                                 <input name={inputName} type="number" step="0.01" defaultValue={val !== null ? String(val) : ""} />
                               ) : f.kind === "array:text" ? (
                                 <input name={inputName} defaultValue={Array.isArray(val) ? val.join(", ") : ""} />
+                              ) : f.kind === "array:number" ? (
+                                <input name={inputName} defaultValue={Array.isArray(val) ? val.join(",") : ""} placeholder="1,2,3,..." />
                               ) : (
                                 <input name={inputName} defaultValue={String(val || "")} />
                               )}
@@ -362,11 +449,50 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
                         </div>
                       </form>
 
-                      {/* Borrar */}
-                      <form action={deleteRow} style={{ marginBlockStart: 8, display: "flex", gap: 8, justifyContent: "end" }}>
+                      {/* POA: Actualizado rápido (solo cuando tableKey === 'poa') */}
+                      {tableKey === "poa" && (
+                        <form
+                          action={poaQuickUpdate}
+                          className="grid"
+                          style={{ gridTemplateColumns: "repeat(5,1fr)", gap: 8, alignItems: "end", marginBlockStart: 12 }}
+                        >
+                          <input type="hidden" name="id" value={r[cfg.pk ?? "id"]} />
+                          <div>
+                            <label>Avance %</label>
+                            <input name="progress" type="number" min={0} max={100} step="0.1" defaultValue={r.progress ?? ""} />
+                          </div>
+                          <div>
+                            <label>+ Gasto</label>
+                            <input name="spent_delta" type="number" min={0} step="0.01" />
+                          </div>
+                          <div>
+                            <label>Estado</label>
+                            <select name="status" defaultValue={r.status ?? ""}>
+                              <option value="">(igual)</option>
+                              <option>Plan</option>
+                              <option>En curso</option>
+                              <option>Riesgo</option>
+                              <option>Hecho</option>
+                            </select>
+                          </div>
+                          <div style={{ gridColumn: "span 2" }}>
+                            <label>Nota (bitácora)</label>
+                            <input name="note" placeholder="Opcional..." />
+                          </div>
+                          <div style={{ gridColumn: "1/-1", justifySelf: "end" }}>
+                            <button>Actualizar</button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Borrar (sin onSubmit cliente) */}
+                      <form
+                        action={deleteRow}
+                        style={{ marginBlockStart: 8, display: "flex", gap: 8, justifyContent: "end" }}
+                      >
                         <input type="hidden" name="tableKey" value={tableKey} />
                         <input type="hidden" name="id" value={r[cfg.pk ?? "id"]} />
-                        <button className="btn-danger">Eliminar</button>
+                        <button className="btn-danger" title="Elimina el registro de forma inmediata">Eliminar</button>
                       </form>
                     </div>
                   </details>
@@ -374,7 +500,11 @@ export default async function AdminPage({ searchParams }: { searchParams?: { t?:
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={1 + cfg.fields.length + 1}><div className="empty">No hay registros.</div></td></tr>
+              <tr>
+                <td colSpan={1 + cfg.fields.length + 1}>
+                  <div className="empty">No hay registros.</div>
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

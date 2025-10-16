@@ -1,46 +1,71 @@
+// components/Nav.tsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
-const LINKS = [
-  { href: "/",           label: "Dashboard" },
+type LinkItem = { href: string; label: string; exact?: boolean };
+
+const BASE_LINKS: LinkItem[] = [
+  { href: "/",           label: "Dashboard", exact: true },
   { href: "/tasks",      label: "Tareas" },
   { href: "/projects",   label: "Proyectos" },
   { href: "/objectives", label: "Metas" },
   { href: "/finance",    label: "Finanzas" },
   { href: "/agenda",     label: "Agenda" },
   { href: "/contacts",   label: "Contactos" },
-  { href: "/admin",      label: "Admin" },      // 👈 aquí
+  { href: "/poa",        label: "POA" },     // quítalo si no lo usas
+  { href: "/admin",      label: "Admin" },
 ];
 
 export default function Nav() {
-  const pathname = usePathname();
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href));
+  const pathname = usePathname() || "/";
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const links = useMemo(() => BASE_LINKS, []);
+
+  const isActive = (href: string, exact?: boolean) =>
+    exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
 
   async function signOut() {
-    const sb = supabaseBrowser();
-    await sb.auth.signOut();
-    window.location.href = "/auth/sign-in?next=/";
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await supabaseBrowser().auth.signOut();
+    } finally {
+      router.replace("/auth/sign-in?next=/");
+    }
   }
 
   return (
-    <nav style={{display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginTop:12}}>
-      <div style={{display:"flex", gap:12, flexWrap:"wrap"}}>
-        {LINKS.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            aria-current={isActive(l.href) ? "page" : undefined}
-          >
-            {l.label}
-          </Link>
-        ))}
+    <nav
+      aria-label="Principal"
+      style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}
+    >
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", overflowX: "auto", paddingBlock: 2 }}>
+        {links.map(({ href, label, exact }) => {
+          const active = isActive(href, exact);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className="nav-link"
+              data-active={active ? "true" : "false"}
+            >
+              {label}
+            </Link>
+          );
+        })}
       </div>
-      <div style={{marginInlineStart:"auto"}}>
-        <button className="btn-ghost" onClick={signOut}>Salir</button>
+
+      <div style={{ marginInlineStart: "auto" }}>
+        <button className="btn-ghost" onClick={signOut} disabled={signingOut}>
+          {signingOut ? "Saliendo…" : "Salir"}
+        </button>
       </div>
     </nav>
   );

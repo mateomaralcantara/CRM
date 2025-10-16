@@ -2,52 +2,51 @@
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { revalidatePath } from "next/cache";
 
 async function create(form: FormData) {
   "use server";
   const name = String(form.get("name") || "").trim();
   if (!name) return;
-
-  const { error } = await supabase.from("projects").insert({ name });
-  if (error) throw new Error("Supabase insert (projects): " + error.message);
-
-  revalidatePath("/projects");
-  revalidatePath("/");
+  await supabase.from("projects").insert({ name, content: "" });
 }
 
 export default async function ProjectsPage() {
-  const { data: projects, error } = await supabase
+  const { data: projects } = await supabase
     .from("projects")
-    .select("*")
+    .select("id,name,status,created_at")
     .order("created_at", { ascending: false });
-
-  if (error) {
-    return <div className="card"><h2>Proyectos</h2><p style={{color:"#fca5a5"}}>Error: {error.message}</p></div>;
-  }
 
   return (
     <div className="card">
-      <h2 style={{marginTop:0}}>Proyectos</h2>
-      <form action={create} className="flex" style={{gap:12}}>
-        <div style={{flex:1}}>
-          <label>Nombre</label>
-          <input name="name" required />
+      <h2 style={{ marginBlockStart: 0 }}>Proyectos</h2>
+      <form action={create} className="flex" style={{ marginBlockEnd: 12 }}>
+        <div style={{ flex: 1 }}>
+          <label>Título del proyecto</label>
+          <input name="name" placeholder="Ej: Rediseño web" required />
         </div>
         <div><button>Crear</button></div>
       </form>
 
-      <table style={{marginTop:16}}>
-        <thead><tr><th>Nombre</th><th>Estado</th><th>Creado</th></tr></thead>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>Estado</th><th>Creado</th><th></th></tr>
+        </thead>
         <tbody>
-          {(projects??[]).map((p:any) => (
+          {(projects ?? []).map((p: any) => (
             <tr key={p.id}>
               <td>{p.name}</td>
-              <td>{p.status}</td>
-              <td>{new Date(p.created_at).toLocaleString('es-DO')}</td>
+              <td><span className="badge">{p.status}</span></td>
+              <td>{new Date(p.created_at).toLocaleString("es-DO")}</td>
+              <td className="right">
+                <Link className="btn-ghost" href={`/projects/${p.id}`}>Abrir</Link>
+              </td>
             </tr>
           ))}
+          {(!projects || projects.length === 0) && (
+            <tr><td colSpan={4}><div className="empty">Crea tu primer proyecto para empezar.</div></td></tr>
+          )}
         </tbody>
       </table>
     </div>
