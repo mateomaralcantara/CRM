@@ -1,26 +1,9 @@
-// lib/supabase/browser.ts
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+// usa cookies compatibles con el middleware
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-// Deja que TS infiera el tipo exacto del client (evita choques de genéricos)
-let client: ReturnType<typeof createClient<Database>> | null = null;
+let client: ReturnType<typeof createClientComponentClient> | null = null;
 
 export function supabaseBrowser() {
-  if (!client) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    if (!url || !key) {
-      if (process.env.NODE_ENV !== "production") {
-        throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY");
-      }
-    }
-    client = createClient<Database>(url, key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    });
-  }
+  if (!client) client = createClientComponentClient();
   return client;
 }

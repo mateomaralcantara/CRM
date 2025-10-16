@@ -1,15 +1,16 @@
-// server.js (CommonJS)
-const { createServer } = require("http");
+// server.js
+const http = require("http");
 const next = require("next");
 
-const port = process.env.PORT || 3000;
-const dev = process.env.NODE_ENV !== "production";
-const app = next({ dev });
+const port = process.env.PORT || 3000;     // Hostinger inyecta PORT
+const hostname = "0.0.0.0";                // Escucha en todas las interfaces
+const dev = false;
+
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  createServer((req, res) => handle(req, res)).listen(port, (err) => {
-    if (err) throw err;
-    console.log("> Ready on http://localhost:" + port);
+  http.createServer((req, res) => handle(req, res)).listen(port, hostname, () => {
+    console.log(`> Next.js listo en http://${hostname}:${port}`);
   });
 });
