@@ -14,6 +14,7 @@ const BASE_LINKS: LinkItem[] = [
   { href: "/projects",   label: "Proyectos" },
   { href: "/objectives", label: "Metas" },
   { href: "/finance",    label: "Finanzas" },
+  { href: "/debts",      label: "Deudas" },    // 👈 NUEVO
   { href: "/agenda",     label: "Agenda" },
   { href: "/contacts",   label: "Contactos" },
   { href: "/poa",        label: "POA" },     // quítalo si no lo usas
